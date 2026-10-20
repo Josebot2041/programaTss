@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+
+  /* Paleta institucional (los mismos valores están en src/ui/tema.ts para los gráficos) */
+  --color-institucional: #1F4E79;
+  --color-institucional-medio: #4F7CAC;
+  --color-institucional-claro: #A9C1DB;
+  --color-institucional-fondo: #EEF3F8;
+  --color-resalte: #C8641E;
+  --color-resalte-fondo: #FBF1E9;
+}
+
+body {
+  font-feature-settings: "tnum" 1;
+}
+
+/* Informe ejecutivo: A4 con márgenes de 2 cm, una sección por hoja y sin cortar gráficos ni tablas */
+@media print {
+  @page {
+    size: A4;
+    margin: 2cm;
+  }
+  html,
+  body {
+    background: #ffffff !important;
+  }
+  .pagina-informe {
+    break-after: page;
+  }
+  .pagina-informe:last-of-type {
+    break-after: auto;
+  }
+  .sin-cortes,
+  figure,
+  table,
+  tr {
+    break-inside: avoid;
+  }
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
