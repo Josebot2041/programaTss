@@ -501,13 +501,15 @@ export async function importarArchivo(datos: ArrayBuffer, nombreArchivo: string)
   return importarLibro(xlsx, leerLibro(xlsx, datos, nombreArchivo));
 }
 
-/** Ruta de la base real incluida en la aplicación (carpeta public/data). */
-export const RUTA_BASE_REAL = `${import.meta.env.BASE_URL}data/Base_Limpia_Titulados_Empleadores.xlsx`;
+/** Nombre de la base real incluida en la aplicación (carpeta public/data). */
 export const NOMBRE_BASE_REAL = 'Base_Limpia_Titulados_Empleadores.xlsx';
 
-/** Descarga e importa la base real incluida en la aplicación. */
+/**
+ * Descarga e importa la base real incluida en la aplicación. La ruta se arma aquí y no al
+ * cargar el módulo, porque import.meta.env solo existe en Vite (el seed lo usa desde Node).
+ */
 export async function cargarBaseReal(): Promise<ResultadoImportacion> {
-  const respuesta = await fetch(RUTA_BASE_REAL);
+  const respuesta = await fetch(`${import.meta.env.BASE_URL}data/${NOMBRE_BASE_REAL}`);
   if (!respuesta.ok) {
     throw new Error(`No se pudo descargar ${NOMBRE_BASE_REAL} (HTTP ${respuesta.status})`);
   }

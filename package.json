@@ -9,6 +9,7 @@
     "dev:api": "tsx watch server/index.ts",
     "dev:red": "vite --port=3000 --host=0.0.0.0",
     "db:init": "tsx server/scripts/db-init.ts",
+    "db:seed": "tsx server/scripts/db-seed.ts",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
