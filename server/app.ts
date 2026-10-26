@@ -1,20 +1,18 @@
 /**
- * Aplicación Express de la API (/api/*).
+ * Aplicación Express de la API (/api/*). Solo adapta los manejadores de server/handlers,
+ * que no dependen de Express (se pueden reutilizar como funciones serverless de Vercel).
  */
 
 import express from 'express';
-import { validarEmpleadorRecibido, validarTituladoRecibido } from '../src/utils/validacion';
-import { pool } from './db';
-import {
-  CAMPOS_EMPLEADOR,
-  CAMPOS_TITULADO,
-  empleadorDeFila,
-  itemDeFila,
-  sqlInsertar,
-  tituladoDeFila,
-  valoresEmpleador,
-  valoresTitulado
-} from './repositorio';
+import { RUTAS, type Manejador } from './handlers';
+
+/** Convierte un manejador independiente en un middleware de Express. */
+function adaptar(manejador: Manejador): express.RequestHandler {
+  return async (req, res) => {
+    const { status, body } = await manejador({ body: req.body });
+    res.status(status).json(body);
+  };
+}
 
 export function crearApp() {
   const app = express();
@@ -22,50 +20,10 @@ export function crearApp() {
   // Una encuesta ocupa pocos KB; se rechazan cuerpos más grandes.
   app.use(express.json({ limit: '100kb' }));
 
-  app.get('/api/health', async (_req, res) => {
-    try {
-      await pool.query('SELECT 1');
-      res.json({ ok: true, db: true });
-    } catch {
-      res.status(503).json({ ok: false, db: false });
-    }
-  });
-
-  app.get('/api/titulados', async (_req, res) => {
-    const { rows } = await pool.query('SELECT * FROM titulados ORDER BY id');
-    res.json(rows.map(tituladoDeFila));
-  });
-
-  app.post('/api/titulados', async (req, res) => {
-    const { errores, registro } = validarTituladoRecibido(req.body);
-    if (!registro) {
-      res.status(400).json({ errores });
-      return;
-    }
-    const { rows } = await pool.query(sqlInsertar('titulados', CAMPOS_TITULADO), [...valoresTitulado(registro), 'formulario']);
-    res.status(201).json(tituladoDeFila(rows[0]));
-  });
-
-  app.get('/api/empleadores', async (_req, res) => {
-    const { rows } = await pool.query('SELECT * FROM empleadores ORDER BY id');
-    res.json(rows.map(empleadorDeFila));
-  });
-
-  app.post('/api/empleadores', async (req, res) => {
-    const { errores, registro } = validarEmpleadorRecibido(req.body);
-    if (!registro) {
-      res.status(400).json({ errores });
-      return;
-    }
-    const { rows } = await pool.query(sqlInsertar('empleadores', CAMPOS_EMPLEADOR), [...valoresEmpleador(registro), 'formulario']);
-    res.status(201).json(empleadorDeFila(rows[0]));
-  });
-
-  /** Textos de las 18 afirmaciones (los usa la pestaña de encuestas). */
-  app.get('/api/items-empleadores', async (_req, res) => {
-    const { rows } = await pool.query('SELECT codigo, afirmacion FROM items_empleadores ORDER BY codigo');
-    res.json(rows.map(itemDeFila));
-  });
+  for (const [ruta, manejadores] of Object.entries(RUTAS)) {
+    if (manejadores.GET) app.get(ruta, adaptar(manejadores.GET));
+    if (manejadores.POST) app.post(ruta, adaptar(manejadores.POST));
+  }
 
   app.use('/api', (_req, res) => {
     res.status(404).json({ error: 'Ruta no encontrada' });
