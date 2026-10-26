@@ -10,20 +10,17 @@ import {
   CAMPOS_TITULADO,
   empleadorDeFila,
   itemDeFila,
+  sqlInsertar,
   tituladoDeFila,
   valoresEmpleador,
   valoresTitulado
 } from './repositorio';
 
-/** INSERT de una encuesta de formulario; todos los valores van como parámetros. */
-function sqlInsertar(tabla: string, campos: string[]): string {
-  const parametros = campos.map((_, i) => `$${i + 1}`);
-  return `INSERT INTO ${tabla} (${campos.join(', ')}, origen) VALUES (${parametros.join(', ')}, 'formulario') RETURNING *`;
-}
-
 export function crearApp() {
   const app = express();
-  app.use(express.json());
+  app.disable('x-powered-by');
+  // Una encuesta ocupa pocos KB; se rechazan cuerpos más grandes.
+  app.use(express.json({ limit: '100kb' }));
 
   app.get('/api/health', async (_req, res) => {
     try {
@@ -45,7 +42,7 @@ export function crearApp() {
       res.status(400).json({ errores });
       return;
     }
-    const { rows } = await pool.query(sqlInsertar('titulados', CAMPOS_TITULADO), valoresTitulado(registro));
+    const { rows } = await pool.query(sqlInsertar('titulados', CAMPOS_TITULADO), [...valoresTitulado(registro), 'formulario']);
     res.status(201).json(tituladoDeFila(rows[0]));
   });
 
@@ -60,7 +57,7 @@ export function crearApp() {
       res.status(400).json({ errores });
       return;
     }
-    const { rows } = await pool.query(sqlInsertar('empleadores', CAMPOS_EMPLEADOR), valoresEmpleador(registro));
+    const { rows } = await pool.query(sqlInsertar('empleadores', CAMPOS_EMPLEADOR), [...valoresEmpleador(registro), 'formulario']);
     res.status(201).json(empleadorDeFila(rows[0]));
   });
 
@@ -79,6 +76,10 @@ export function crearApp() {
     const estado = (err as { status?: number }).status;
     if (estado === 400) {
       res.status(400).json({ errores: { cuerpo: 'JSON mal formado' } });
+      return;
+    }
+    if (estado === 413) {
+      res.status(413).json({ errores: { cuerpo: 'La petición es demasiado grande' } });
       return;
     }
     console.error(err);

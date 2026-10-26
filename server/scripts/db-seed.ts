@@ -11,7 +11,7 @@ import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { importarArchivo, NOMBRE_BASE_REAL } from '../../src/utils/importador';
-import { CAMPOS_EMPLEADOR, CAMPOS_TITULADO, valoresEmpleador, valoresTitulado } from '../repositorio';
+import { CAMPOS_EMPLEADOR, CAMPOS_TITULADO, identificador, valoresEmpleador, valoresTitulado, type Tabla } from '../repositorio';
 
 const RUTA_EXCEL = fileURLToPath(new URL(`../../public/data/${NOMBRE_BASE_REAL}`, import.meta.url));
 
@@ -55,12 +55,13 @@ const idNumerico = (id: string) => {
  * INSERT con todos los valores como parámetros ($1, $2, …). Si el id ya existe y es de la base
  * oficial, se actualiza; si pertenece a un formulario, no se toca (la fila no se devuelve).
  */
-function sqlUpsert(tabla: string, campos: string[]): string {
-  const columnas = ['id', ...campos, 'origen'];
+function sqlUpsert(tabla: Tabla, campos: string[]): string {
+  const t = identificador(tabla);
+  const columnas = ['id', ...campos, 'origen'].map(identificador);
   const parametros = columnas.map((_, i) => `$${i + 1}`);
-  const asignaciones = campos.map((c) => `${c} = EXCLUDED.${c}`).join(', ');
-  return `INSERT INTO ${tabla} (${columnas.join(', ')}) VALUES (${parametros.join(', ')})
-    ON CONFLICT (id) DO UPDATE SET ${asignaciones} WHERE ${tabla}.origen = 'base_oficial'
+  const asignaciones = campos.map((c) => `${identificador(c)} = EXCLUDED.${identificador(c)}`).join(', ');
+  return `INSERT INTO ${t} (${columnas.join(', ')}) VALUES (${parametros.join(', ')})
+    ON CONFLICT (id) DO UPDATE SET ${asignaciones} WHERE ${t}.origen = 'base_oficial'
     RETURNING (xmax = 0) AS insertado`;
 }
 
@@ -74,7 +75,7 @@ const cliente = await pool.connect();
 try {
   await cliente.query('BEGIN');
 
-  const cargar = async <T extends { id: string }>(tabla: string, campos: string[], registros: T[], valores: (r: T) => unknown[]) => {
+  const cargar = async <T extends { id: string }>(tabla: Tabla, campos: string[], registros: T[], valores: (r: T) => unknown[]) => {
     const sql = sqlUpsert(tabla, campos);
     const conteo: Conteo = { insertados: 0, actualizados: 0, omitidos: [] };
     for (const r of registros) {
@@ -85,7 +86,8 @@ try {
     }
     // Las encuestas nuevas reciben ids a partir del mayor existente.
     await cliente.query(
-      `SELECT setval(pg_get_serial_sequence('${tabla}', 'id'), (SELECT COALESCE(MAX(id), 0) + 1 FROM ${tabla}), false)`
+      `SELECT setval(pg_get_serial_sequence($1, 'id'), (SELECT COALESCE(MAX(id), 0) + 1 FROM ${identificador(tabla)}), false)`,
+      [tabla]
     );
     return conteo;
   };
