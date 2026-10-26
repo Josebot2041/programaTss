@@ -17,12 +17,12 @@ export const CAMPOS_EMPLEADOR = COLUMNAS_EMPLEADORES.map((c) => c.nombre).filter
 
 const CODIGOS = new Set(CODIGOS_ITEMS);
 
-export function valoresTitulado(t: Titulado): unknown[] {
+export function valoresTitulado(t: Omit<Titulado, 'id'>): unknown[] {
   const registro = t as unknown as Record<string, unknown>;
   return CAMPOS_TITULADO.map((c) => registro[c] ?? null);
 }
 
-export function valoresEmpleador(e: Empleador): unknown[] {
+export function valoresEmpleador(e: Omit<Empleador, 'id'>): unknown[] {
   const registro = e as unknown as Record<string, unknown>;
   return CAMPOS_EMPLEADOR.map((c) => (CODIGOS.has(c) ? e.items_likert[c] : registro[c]) ?? null);
 }

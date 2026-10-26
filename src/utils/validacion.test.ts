@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { CODIGOS_ITEMS } from '../data/catalogos';
-import { BORRADOR_EMPLEADOR_VACIO, BORRADOR_TITULADO_VACIO, siguienteId, validarEmpleador, validarTitulado, type BorradorTitulado } from './validacion';
+import {
+  BORRADOR_EMPLEADOR_VACIO,
+  BORRADOR_TITULADO_VACIO,
+  siguienteId,
+  validarEmpleador,
+  validarEmpleadorRecibido,
+  validarTitulado,
+  validarTituladoRecibido,
+  type BorradorTitulado
+} from './validacion';
 
 const completo: BorradorTitulado = {
   ...BORRADOR_TITULADO_VACIO,
@@ -69,5 +78,32 @@ describe('Validación del formulario de empleadores', () => {
     );
     expect(ok.errores).toEqual({});
     expect(ok.registro?.organizacion).toBe('Empresa de prueba');
+  });
+});
+
+describe('Validación en el servidor', () => {
+  it('acepta el mismo borrador que el formulario', () => {
+    const r = validarTituladoRecibido(completo);
+    expect(r.errores).toEqual({});
+    expect(r.registro).toMatchObject({ edad: '23 - 26 años', anios_vida_profesional: 3 });
+  });
+
+  it('rechaza opciones fuera de catálogo y tipos incorrectos', () => {
+    const r = validarTituladoRecibido({ ...completo, edad: '99 años', satisfaccion_global: 7, asignaturas_ventaja: ['Inventada'] });
+    expect(Object.keys(r.errores).sort()).toEqual(['asignaturas_ventaja', 'edad', 'satisfaccion_global']);
+    expect(r.registro).toBeUndefined();
+  });
+
+  it('aplica las reglas del formulario después de revisar los tipos', () => {
+    expect(validarTituladoRecibido({}).errores.edad).toBe('Campo obligatorio');
+    expect(validarTituladoRecibido('texto').errores.cuerpo).toBeDefined();
+  });
+
+  it('valida las respuestas Likert de empleadores', () => {
+    const items = Object.fromEntries(CODIGOS_ITEMS.map((c) => [c, 'No sabe']));
+    const base = { organizacion: 'ACME', tipo: 'Privado', tamano: 'Micro', rubro: 'Salud', contrato_5_anios: 'Sí', posibilidad_contratacion: 'Alta probabilidad', nivel_demandado: 'Licenciatura' };
+    expect(validarEmpleadorRecibido({ ...base, items_likert: items }).registro).toMatchObject({ organizacion: 'ACME' });
+    expect(validarEmpleadorRecibido({ ...base, items_likert: { ...items, item_99: 'No sabe' } }).errores.items_likert).toBeDefined();
+    expect(validarEmpleadorRecibido({ ...base, items_likert: { ...items, item_01: 'Quizás' } }).errores.items_likert).toBeDefined();
   });
 });
