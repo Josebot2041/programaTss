@@ -29,6 +29,7 @@ const base = await importarArchivo(
 const titulados = base.titulados ?? [];
 const empleadores = base.empleadores ?? [];
 const nada = () => undefined;
+const guardarNada = async () => ({ ok: false as const, errores: {} });
 
 const pantallas: Array<[string, React.ReactElement]> = [
   ['Sidebar', <Sidebar activeTab="overview" setActiveTab={nada} onOpenReport={nada} tituladosCount={148} empleadoresCount={51} isOpenMobile={false} onCloseMobile={nada} />],
@@ -54,8 +55,8 @@ const pantallas: Array<[string, React.ReactElement]> = [
       onNavigate={nada}
     />
   ],
-  ['Encuesta titulados', <FormTituladosSurvey onAddTitulado={nada} onNavigateToAnalytics={nada} idsExistentes={titulados.map((t) => t.id)} />],
-  ['Encuesta empleadores', <FormEmpleadoresSurvey onAddEmpleador={nada} onNavigateToAnalytics={nada} idsExistentes={empleadores.map((e) => e.id)} />],
+  ['Encuesta titulados', <FormTituladosSurvey onGuardarTitulado={guardarNada} onNavigateToAnalytics={nada} idsExistentes={titulados.map((t) => t.id)} />],
+  ['Encuesta empleadores', <FormEmpleadoresSurvey onGuardarEmpleador={guardarNada} onNavigateToAnalytics={nada} idsExistentes={empleadores.map((e) => e.id)} />],
   ['Informe imprimible', <OfficialReportModal isOpen onClose={nada} titulados={titulados} empleadores={empleadores} />]
 ];
 

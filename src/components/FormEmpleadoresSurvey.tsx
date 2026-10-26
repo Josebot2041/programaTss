@@ -12,22 +12,26 @@ import {
   TAMANOS_EMPRESA,
   TIPOS_ORGANIZACION
 } from '../data/catalogos';
+import type { ResultadoGuardado } from '../utils/api';
 import { BORRADOR_EMPLEADOR_VACIO, siguienteId, validarEmpleador, type BorradorEmpleador, type Errores } from '../utils/validacion';
 import { EncabezadoPagina, Nota } from './ui/Estructura';
 import { CampoCasillas, CampoOpciones, CampoSelect, CampoTexto, GrupoFormulario } from './ui/Formulario';
 
 interface FormEmpleadoresSurveyProps {
-  onAddEmpleador: (empleador: Empleador) => void;
+  /** Guarda la encuesta (en la API o, sin conexión, en memoria) y devuelve el registro guardado. */
+  onGuardarEmpleador: (borrador: BorradorEmpleador, registroLocal: Empleador) => Promise<ResultadoGuardado<Empleador>>;
   onNavigateToAnalytics: () => void;
   idsExistentes: string[];
 }
 
 const OPCIONES_LIKERT = LIKERT_EMPLEADOR.map((texto) => ({ valor: texto, texto }));
 
-export const FormEmpleadoresSurvey: React.FC<FormEmpleadoresSurveyProps> = ({ onAddEmpleador, onNavigateToAnalytics, idsExistentes }) => {
+export const FormEmpleadoresSurvey: React.FC<FormEmpleadoresSurveyProps> = ({ onGuardarEmpleador, onNavigateToAnalytics, idsExistentes }) => {
   const [b, setB] = useState<BorradorEmpleador>(BORRADOR_EMPLEADOR_VACIO);
   const [errores, setErrores] = useState<Errores>({});
   const [guardado, setGuardado] = useState<string>('');
+  const [enviando, setEnviando] = useState<boolean>(false);
+  const [errorEnvio, setErrorEnvio] = useState<string>('');
 
   const set = <K extends keyof BorradorEmpleador>(campo: K, valor: BorradorEmpleador[K]) => setB((prev) => ({ ...prev, [campo]: valor }));
   const select = <K extends keyof BorradorEmpleador>(campo: K, etiqueta: string, opciones: readonly string[], obligatorio = true) => (
@@ -42,17 +46,23 @@ export const FormEmpleadoresSurvey: React.FC<FormEmpleadoresSurveyProps> = ({ on
     />
   );
 
-  const enviar = (ev: React.FormEvent) => {
+  const enviar = async (ev: React.FormEvent) => {
     ev.preventDefault();
-    const id = siguienteId(idsExistentes);
-    const r = validarEmpleador(b, id);
+    const r = validarEmpleador(b, siguienteId(idsExistentes));
     setErrores(r.errores);
-    if (r.registro) {
-      onAddEmpleador(r.registro);
-      setGuardado(id);
+    setGuardado('');
+    setErrorEnvio('');
+    if (!r.registro) return;
+
+    setEnviando(true);
+    const resultado = await onGuardarEmpleador(b, r.registro);
+    setEnviando(false);
+    if (resultado.ok) {
+      setGuardado(resultado.registro.id);
       setB(BORRADOR_EMPLEADOR_VACIO);
     } else {
-      setGuardado('');
+      setErrores(resultado.errores);
+      setErrorEnvio(resultado.mensaje ?? '');
     }
   };
 
@@ -72,6 +82,7 @@ export const FormEmpleadoresSurvey: React.FC<FormEmpleadoresSurveyProps> = ({ on
         </Nota>
       )}
       {nErrores > 0 && <Nota tono="resalte">Revise {nErrores === 1 ? 'el campo marcado' : `los ${nErrores} campos marcados`}.</Nota>}
+      {errorEnvio && <Nota tono="resalte">{errorEnvio}</Nota>}
 
       <form onSubmit={enviar} noValidate className="space-y-4">
         <GrupoFormulario titulo="Organización">
@@ -131,8 +142,8 @@ export const FormEmpleadoresSurvey: React.FC<FormEmpleadoresSurveyProps> = ({ on
           >
             Limpiar
           </button>
-          <button type="submit" className="px-4 py-2 text-sm text-white bg-institucional rounded hover:opacity-90">
-            Guardar encuesta
+          <button type="submit" disabled={enviando} className="px-4 py-2 text-sm text-white bg-institucional rounded hover:opacity-90 disabled:opacity-60">
+            {enviando ? 'Guardando…' : 'Guardar encuesta'}
           </button>
         </div>
       </form>

@@ -20,22 +20,26 @@ import {
   TIEMPOS_PRIMER_EMPLEO,
   type Likert
 } from '../data/catalogos';
+import type { ResultadoGuardado } from '../utils/api';
 import { BORRADOR_TITULADO_VACIO, siguienteId, validarTitulado, type BorradorTitulado, type Errores } from '../utils/validacion';
 import { EncabezadoPagina, Nota } from './ui/Estructura';
 import { CampoCasillas, CampoOpciones, CampoSelect, CampoTexto, GrupoFormulario } from './ui/Formulario';
 
 interface FormTituladosSurveyProps {
-  onAddTitulado: (titulado: Titulado) => void;
+  /** Guarda la encuesta (en la API o, sin conexión, en memoria) y devuelve el registro guardado. */
+  onGuardarTitulado: (borrador: BorradorTitulado, registroLocal: Titulado) => Promise<ResultadoGuardado<Titulado>>;
   onNavigateToAnalytics: () => void;
   idsExistentes: string[];
 }
 
 const OPCIONES_LIKERT = LIKERT_TITULADOS.map((texto, i) => ({ valor: (i + 1) as Likert, texto }));
 
-export const FormTituladosSurvey: React.FC<FormTituladosSurveyProps> = ({ onAddTitulado, onNavigateToAnalytics, idsExistentes }) => {
+export const FormTituladosSurvey: React.FC<FormTituladosSurveyProps> = ({ onGuardarTitulado, onNavigateToAnalytics, idsExistentes }) => {
   const [b, setB] = useState<BorradorTitulado>(BORRADOR_TITULADO_VACIO);
   const [errores, setErrores] = useState<Errores>({});
   const [guardado, setGuardado] = useState<string>('');
+  const [enviando, setEnviando] = useState<boolean>(false);
+  const [errorEnvio, setErrorEnvio] = useState<string>('');
 
   const set = <K extends keyof BorradorTitulado>(campo: K, valor: BorradorTitulado[K]) => setB((prev) => ({ ...prev, [campo]: valor }));
   const select = <K extends keyof BorradorTitulado>(campo: K, etiqueta: string, opciones: readonly string[]) => (
@@ -52,17 +56,23 @@ export const FormTituladosSurvey: React.FC<FormTituladosSurveyProps> = ({ onAddT
     <CampoOpciones etiqueta={etiqueta} valor={b[campo]} opciones={OPCIONES_LIKERT} onCambiar={(v) => set(campo, v)} error={errores[campo]} />
   );
 
-  const enviar = (ev: React.FormEvent) => {
+  const enviar = async (ev: React.FormEvent) => {
     ev.preventDefault();
-    const id = siguienteId(idsExistentes);
-    const r = validarTitulado(b, id);
+    const r = validarTitulado(b, siguienteId(idsExistentes));
     setErrores(r.errores);
-    if (r.registro) {
-      onAddTitulado(r.registro);
-      setGuardado(id);
+    setGuardado('');
+    setErrorEnvio('');
+    if (!r.registro) return;
+
+    setEnviando(true);
+    const resultado = await onGuardarTitulado(b, r.registro);
+    setEnviando(false);
+    if (resultado.ok) {
+      setGuardado(resultado.registro.id);
       setB(BORRADOR_TITULADO_VACIO);
     } else {
-      setGuardado('');
+      setErrores(resultado.errores);
+      setErrorEnvio(resultado.mensaje ?? '');
     }
   };
 
@@ -82,6 +92,7 @@ export const FormTituladosSurvey: React.FC<FormTituladosSurveyProps> = ({ onAddT
         </Nota>
       )}
       {nErrores > 0 && <Nota tono="resalte">Revise {nErrores === 1 ? 'el campo marcado' : `los ${nErrores} campos marcados`}.</Nota>}
+      {errorEnvio && <Nota tono="resalte">{errorEnvio}</Nota>}
 
       <form onSubmit={enviar} noValidate className="space-y-4">
         <GrupoFormulario titulo="Datos generales">
@@ -178,8 +189,8 @@ export const FormTituladosSurvey: React.FC<FormTituladosSurveyProps> = ({ onAddT
           >
             Limpiar
           </button>
-          <button type="submit" className="px-4 py-2 text-sm text-white bg-institucional rounded hover:opacity-90">
-            Guardar encuesta
+          <button type="submit" disabled={enviando} className="px-4 py-2 text-sm text-white bg-institucional rounded hover:opacity-90 disabled:opacity-60">
+            {enviando ? 'Guardando…' : 'Guardar encuesta'}
           </button>
         </div>
       </form>

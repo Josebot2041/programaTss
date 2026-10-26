@@ -4,9 +4,11 @@
  */
 
 import React, { lazy, Suspense, useCallback, useEffect, useState } from 'react';
-import { Loader2, AlertCircle, RotateCcw } from 'lucide-react';
+import { Loader2, AlertCircle, RotateCcw, CloudOff } from 'lucide-react';
 import { Titulado, Empleador, ItemEmpleador } from './types';
 import { cargarBaseReal, NOMBRE_BASE_REAL, type ProblemaImportacion } from './utils/importador';
+import { cargarDesdeApi, guardarEmpleador, guardarTitulado, type ResultadoGuardado } from './utils/api';
+import type { BorradorEmpleador, BorradorTitulado } from './utils/validacion';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { INFO_INSTITUCIONAL } from './data/strategicPlan';
@@ -64,15 +66,31 @@ export default function App() {
   const [reportModalOpen, setReportModalOpen] = useState<boolean>(() => window.location.hash === '#informe');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
 
-  // Carga (o recarga) la base real incluida en public/data
+  // 'api': datos de PostgreSQL; 'excel': respaldo local porque la API no respondió
+  const [fuente, setFuente] = useState<'api' | 'excel'>('api');
+
+  // Carga (o recarga) los datos desde la API; si no responde, usa la base real de public/data
   const cargarBase = useCallback(async () => {
     setEstadoCarga('cargando');
+    try {
+      const datos = await cargarDesdeApi();
+      setTitulados(datos.titulados);
+      setEmpleadores(datos.empleadores);
+      setItemsEmpleadores(datos.items);
+      setProblemasBase([]);
+      setFuente('api');
+      setEstadoCarga('listo');
+      return;
+    } catch {
+      // Sin API: se sigue con el Excel local
+    }
     try {
       const resultado = await cargarBaseReal();
       setTitulados(resultado.titulados ?? []);
       setEmpleadores(resultado.empleadores ?? []);
       setItemsEmpleadores(resultado.items ?? []);
       setProblemasBase(resultado.problemas);
+      setFuente('excel');
       setEstadoCarga('listo');
     } catch (err) {
       setErrorCarga(err instanceof Error ? err.message : String(err));
@@ -84,12 +102,32 @@ export default function App() {
     void cargarBase();
   }, [cargarBase]);
 
-  const handleAddTitulado = (newT: Titulado) => {
-    setTitulados((prev) => [newT, ...prev]);
+  // Vuelve a pedir los datos sin la pantalla de carga, para que los análisis incluyan la nueva encuesta
+  const refrescarDesdeApi = async () => {
+    const datos = await cargarDesdeApi();
+    setTitulados(datos.titulados);
+    setEmpleadores(datos.empleadores);
   };
 
-  const handleAddEmpleador = (newE: Empleador) => {
-    setEmpleadores((prev) => [newE, ...prev]);
+  // Sin API, la encuesta solo se agrega en memoria (como antes de existir el backend)
+  const handleGuardarTitulado = async (b: BorradorTitulado, local: Titulado): Promise<ResultadoGuardado<Titulado>> => {
+    if (fuente === 'excel') {
+      setTitulados((prev) => [local, ...prev]);
+      return { ok: true, registro: local };
+    }
+    const r = await guardarTitulado(b);
+    if (r.ok) await refrescarDesdeApi().catch(() => setTitulados((prev) => [...prev, r.registro]));
+    return r;
+  };
+
+  const handleGuardarEmpleador = async (b: BorradorEmpleador, local: Empleador): Promise<ResultadoGuardado<Empleador>> => {
+    if (fuente === 'excel') {
+      setEmpleadores((prev) => [local, ...prev]);
+      return { ok: true, registro: local };
+    }
+    const r = await guardarEmpleador(b);
+    if (r.ok) await refrescarDesdeApi().catch(() => setEmpleadores((prev) => [...prev, r.registro]));
+    return r;
   };
 
   if (estadoCarga !== 'listo') {
@@ -100,7 +138,7 @@ export default function App() {
             <>
               <Loader2 className="w-6 h-6 text-sky-800 animate-spin mx-auto" />
               <p className="text-sm font-semibold text-slate-900">Cargando la base de datos real…</p>
-              <p className="text-xs text-slate-500 font-mono">{NOMBRE_BASE_REAL}</p>
+              <p className="text-xs text-slate-500">Servidor PostgreSQL o, sin conexión, <span className="font-mono">{NOMBRE_BASE_REAL}</span></p>
             </>
           ) : (
             <>
@@ -147,6 +185,17 @@ export default function App() {
 
         {/* Dynamic Content Viewport */}
         <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+          {fuente === 'excel' && (
+            <p role="status" className="mb-4 flex items-start gap-1.5 text-xs text-slate-500 print:hidden">
+              <CloudOff className="w-3.5 h-3.5 mt-px shrink-0" aria-hidden="true" />
+              <span>
+                Sin conexión con el servidor: se muestran los datos de {NOMBRE_BASE_REAL} y las encuestas nuevas no se guardarán en la base de datos.{' '}
+                <button onClick={() => void cargarBase()} className="text-institucional hover:underline">
+                  Reintentar
+                </button>
+              </span>
+            </p>
+          )}
           <Suspense fallback={<p className="text-sm text-slate-500">Cargando…</p>}>
           {activeTab === 'overview' && (
             <TabOverview titulados={titulados} empleadores={empleadores} onNavigate={(tab) => setActiveTab(tab)} />
@@ -188,7 +237,7 @@ export default function App() {
 
           {activeTab === 'encuesta_titulados' && (
             <FormTituladosSurvey
-              onAddTitulado={handleAddTitulado}
+              onGuardarTitulado={handleGuardarTitulado}
               onNavigateToAnalytics={() => setActiveTab('titulados')}
               idsExistentes={titulados.map((t) => t.id)}
             />
@@ -196,7 +245,7 @@ export default function App() {
 
           {activeTab === 'encuesta_empleadores' && (
             <FormEmpleadoresSurvey
-              onAddEmpleador={handleAddEmpleador}
+              onGuardarEmpleador={handleGuardarEmpleador}
               onNavigateToAnalytics={() => setActiveTab('curriculo')}
               idsExistentes={empleadores.map((e) => e.id)}
             />
