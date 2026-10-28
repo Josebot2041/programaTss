@@ -62,6 +62,13 @@ responde, la aplicación usa como respaldo el Excel incluido en `public/data/` y
    cargadas desde los formularios no se tocan. Si el archivo Excel no existe, el script avisa y se
    detiene sin modificar nada.
 
+   Para comprobar la carga (148 titulados, 51 empleadores, datos idénticos al Excel y los mismos
+   valores de control del informe):
+
+   ```bash
+   npm run db:verificar
+   ```
+
 6. **Levantar la aplicación**
 
    ```bash
@@ -80,6 +87,7 @@ npm run dev:api    # solo la API (se reinicia al guardar cambios)
 npm run dev:red    # frontend accesible desde otros equipos de la red local
 npm run db:init    # crea tablas y vistas (no borra datos; migra el esquema anterior)
 npm run db:seed    # carga catálogos y actualiza la base oficial desde el Excel
+npm run db:verificar # compara la base con el Excel y los valores de control
 npm run build      # build de producción en dist/
 npm run preview    # sirve el build de producción
 npm run lint       # chequeo de tipos (tsc --noEmit)
