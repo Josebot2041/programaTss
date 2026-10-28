@@ -269,3 +269,110 @@ CREATE INDEX IF NOT EXISTS titulado_aspecto_mejorar_aspecto_idx       ON titulad
 CREATE INDEX IF NOT EXISTS titulado_asignatura_ventaja_asignatura_idx ON titulado_asignatura_ventaja (asignatura_id);
 CREATE INDEX IF NOT EXISTS titulado_asignatura_no_util_asignatura_idx ON titulado_asignatura_no_util (asignatura_id);
 CREATE INDEX IF NOT EXISTS empleador_cargo_cargo_idx                  ON empleador_cargo (cargo_id);
+
+-- ===========================================================================
+-- Vistas con el formato plano de la aplicación
+-- ===========================================================================
+-- Devuelven las mismas columnas que la base oficial y el importador (texto en lugar de ids,
+-- listas como arreglos y las 18 afirmaciones como item_01 … item_18), de modo que la API,
+-- el frontend y los análisis no dependen de la normalización.
+-- Se recrean en cada db:init para reflejar cualquier cambio en su definición.
+
+DROP VIEW IF EXISTS v_titulados;
+CREATE VIEW v_titulados AS
+SELECT
+  t.id,
+  t.edad,
+  t.genero,
+  t.formacion_complementaria,
+  np.nombre AS nivel_realizado,
+  il.nombre AS lugar_realizado,
+  ff.nombre AS financiamiento,
+  t.programa,
+  t.interes_posgrado,
+  ap.nombre AS area_interes,
+  ip.nombre AS institucion_preferida,
+  t.opinion_posgrado_fcyt_id AS opinion_posgrado_fcyt,
+  t.anios_vida_profesional,
+  t.anios_desempleado,
+  t.situacion_laboral,
+  t.empresa,
+  ru.nombre AS rubro,
+  se.nombre AS sector,
+  t.departamento,
+  ARRAY(SELECT a.nombre FROM titulado_actividad x JOIN actividades a ON a.id = x.actividad_id
+        WHERE x.titulado_id = t.id ORDER BY x.orden) AS actividades,
+  ct.nombre AS cargo,
+  t.pertinencia_labores_id AS pertinencia_labores,
+  t.antiguedad_trabajo,
+  t.medio_obtencion,
+  t.remuneracion,
+  t.origen_emprendimiento,
+  t.entregable_negocio,
+  fn.nombre AS financiamiento_negocio,
+  t.satisfaccion_negocio,
+  t.importancia_formacion_negocio,
+  t.primer_empleo,
+  t.razon_no_trabaja,
+  t.trabajo_previo_sistemas,
+  t.tiempo_primer_empleo,
+  t.numero_empleos,
+  t.satisfaccion_global_id AS satisfaccion_global,
+  t.concordancia_formacion_id AS concordancia_formacion,
+  ARRAY(SELECT a.nombre FROM titulado_aspecto_util x JOIN aspectos_carrera a ON a.id = x.aspecto_id
+        WHERE x.titulado_id = t.id ORDER BY x.orden) AS aspectos_utiles,
+  ARRAY(SELECT a.nombre FROM titulado_aspecto_mejorar x JOIN aspectos_carrera a ON a.id = x.aspecto_id
+        WHERE x.titulado_id = t.id ORDER BY x.orden) AS aspectos_mejorar,
+  ARRAY(SELECT a.nombre FROM titulado_asignatura_ventaja x JOIN asignaturas a ON a.id = x.asignatura_id
+        WHERE x.titulado_id = t.id ORDER BY x.orden) AS asignaturas_ventaja,
+  ARRAY(SELECT a.nombre FROM titulado_asignatura_no_util x JOIN asignaturas a ON a.id = x.asignatura_id
+        WHERE x.titulado_id = t.id ORDER BY x.orden) AS asignaturas_no_utiles,
+  t.red_contactos,
+  t.origen,
+  t.created_at
+FROM titulados t
+LEFT JOIN niveles_posgrado       np ON np.id = t.nivel_realizado_id
+LEFT JOIN instituciones          il ON il.id = t.lugar_realizado_id
+LEFT JOIN fuentes_financiamiento ff ON ff.id = t.financiamiento_id
+LEFT JOIN areas_posgrado         ap ON ap.id = t.area_interes_id
+LEFT JOIN instituciones          ip ON ip.id = t.institucion_preferida_id
+LEFT JOIN rubros                 ru ON ru.id = t.rubro_id
+LEFT JOIN sectores               se ON se.id = t.sector_id
+LEFT JOIN cargos_titulado        ct ON ct.id = t.cargo_id
+LEFT JOIN fuentes_financiamiento fn ON fn.id = t.financiamiento_negocio_id;
+
+DROP VIEW IF EXISTS v_empleadores;
+CREATE VIEW v_empleadores AS
+SELECT
+  e.id,
+  e.organizacion,
+  se.nombre AS tipo,
+  e.tamano,
+  ru.nombre AS rubro,
+  e.contrato_5_anios,
+  e.posibilidad_contratacion,
+  e.nivel_demandado,
+  e.medio_convocatoria,
+  ARRAY(SELECT c.nombre FROM empleador_cargo x JOIN cargos_empleador c ON c.id = x.cargo_id
+        WHERE x.empleador_id = e.id ORDER BY x.orden) AS cargos,
+  e.tendencias,
+  e.habilidades,
+  r.valores ->> 'item_01' AS item_01, r.valores ->> 'item_02' AS item_02, r.valores ->> 'item_03' AS item_03,
+  r.valores ->> 'item_04' AS item_04, r.valores ->> 'item_05' AS item_05, r.valores ->> 'item_06' AS item_06,
+  r.valores ->> 'item_07' AS item_07, r.valores ->> 'item_08' AS item_08, r.valores ->> 'item_09' AS item_09,
+  r.valores ->> 'item_10' AS item_10, r.valores ->> 'item_11' AS item_11, r.valores ->> 'item_12' AS item_12,
+  r.valores ->> 'item_13' AS item_13, r.valores ->> 'item_14' AS item_14, r.valores ->> 'item_15' AS item_15,
+  r.valores ->> 'item_16' AS item_16, r.valores ->> 'item_17' AS item_17, r.valores ->> 'item_18' AS item_18,
+  e.origen,
+  e.created_at
+FROM empleadores e
+JOIN sectores    se ON se.id = e.tipo_id
+LEFT JOIN rubros ru ON ru.id = e.rubro_id
+-- Respuestas del empleador como objeto {codigo: texto de la escala}
+LEFT JOIN LATERAL (
+  SELECT jsonb_object_agg(i.codigo, l.nombre) AS valores
+  FROM respuestas_empleador re
+  JOIN items_empleadores       i ON i.id = re.item_id
+  JOIN escala_likert_empleador l ON l.id = re.valor_id
+  WHERE re.empleador_id = e.id
+) r ON true;
