@@ -1,20 +1,27 @@
 import { validarEmpleadorRecibido } from '../../src/utils/validacion';
-import { pool } from '../db';
-import { CAMPOS_EMPLEADOR, empleadorDeFila, itemDeFila, sqlInsertar, valoresEmpleador } from '../repositorio';
+import { enTransaccion, pool } from '../db';
+import { empleadorDeFila, insertarEmpleador, itemDeFila, leerIds } from '../repositorio';
 import type { Peticion, Respuesta } from './tipos';
 
 /** GET /api/empleadores */
 export async function listarEmpleadores(): Promise<Respuesta> {
-  const { rows } = await pool.query('SELECT * FROM empleadores ORDER BY id');
+  const { rows } = await pool.query('SELECT * FROM v_empleadores ORDER BY id');
   return { status: 200, body: rows.map(empleadorDeFila) };
 }
 
-/** POST /api/empleadores — mismas reglas que el formulario; el id lo asigna la base. */
+/**
+ * POST /api/empleadores — mismas reglas que el formulario; el id lo asigna la base.
+ * El empleador, sus cargos y sus 18 respuestas se guardan en una sola transacción.
+ */
 export async function crearEmpleador({ body }: Peticion): Promise<Respuesta> {
   const { errores, registro } = validarEmpleadorRecibido(body);
   if (!registro) return { status: 400, body: { errores } };
-  const { rows } = await pool.query(sqlInsertar('empleadores', CAMPOS_EMPLEADOR), [...valoresEmpleador(registro), 'formulario']);
-  return { status: 201, body: empleadorDeFila(rows[0]) };
+  const fila = await enTransaccion(async (cliente) => {
+    const id = await insertarEmpleador(cliente, await leerIds(cliente), registro, { origen: 'formulario' });
+    const { rows } = await cliente.query('SELECT * FROM v_empleadores WHERE id = $1', [id]);
+    return rows[0];
+  });
+  return { status: 201, body: empleadorDeFila(fila) };
 }
 
 /** GET /api/items-empleadores — textos de las 18 afirmaciones. */

@@ -11,3 +11,19 @@ if (!cadena) {
 }
 
 export const pool = new pg.Pool({ connectionString: cadena });
+
+/** Ejecuta fn en una transacción: COMMIT si termina bien, ROLLBACK si lanza un error. */
+export async function enTransaccion<T>(fn: (cliente: pg.PoolClient) => Promise<T>): Promise<T> {
+  const cliente = await pool.connect();
+  try {
+    await cliente.query('BEGIN');
+    const resultado = await fn(cliente);
+    await cliente.query('COMMIT');
+    return resultado;
+  } catch (err) {
+    await cliente.query('ROLLBACK');
+    throw err;
+  } finally {
+    cliente.release();
+  }
+}
