@@ -110,8 +110,7 @@ CREATE TABLE IF NOT EXISTS titulados (
   rubro_id                      SMALLINT REFERENCES rubros (id),
   sector_id                     SMALLINT REFERENCES sectores (id),
   departamento                  TEXT,
-  actividades                   TEXT[] NOT NULL DEFAULT '{}',
-  cargo_id                      SMALLINT REFERENCES cargos_titulado (id),
+  cargo_id                     SMALLINT REFERENCES cargos_titulado (id),
   pertinencia_labores_id        SMALLINT REFERENCES escala_likert_titulado (id),
   antiguedad_trabajo            TEXT,
   medio_obtencion               TEXT,
@@ -128,11 +127,7 @@ CREATE TABLE IF NOT EXISTS titulados (
   numero_empleos                TEXT,
   satisfaccion_global_id        SMALLINT REFERENCES escala_likert_titulado (id),
   concordancia_formacion_id     SMALLINT REFERENCES escala_likert_titulado (id),
-  aspectos_utiles               TEXT[] NOT NULL DEFAULT '{}',
-  aspectos_mejorar              TEXT[] NOT NULL DEFAULT '{}',
-  asignaturas_ventaja           TEXT[] NOT NULL DEFAULT '{}',
-  asignaturas_no_utiles         TEXT[] NOT NULL DEFAULT '{}',
-  red_contactos                 TEXT,
+  red_contactos                TEXT,
   origen                        TEXT NOT NULL CHECK (origen IN ('base_oficial', 'formulario')),
   created_at                    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -147,8 +142,7 @@ CREATE TABLE IF NOT EXISTS empleadores (
   posibilidad_contratacion TEXT,
   nivel_demandado          TEXT,
   medio_convocatoria       TEXT,
-  cargos                   TEXT[] NOT NULL DEFAULT '{}',
-  tendencias               TEXT,
+  tendencias              TEXT,
   habilidades              TEXT,
   origen                  TEXT NOT NULL CHECK (origen IN ('base_oficial', 'formulario')),
   created_at               TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -168,4 +162,60 @@ CREATE TABLE IF NOT EXISTS respuestas_empleador (
   item_id      INTEGER  NOT NULL REFERENCES items_empleadores (id),
   valor_id     SMALLINT NOT NULL REFERENCES escala_likert_empleador (id),
   PRIMARY KEY (empleador_id, item_id)
+);
+
+-- ===========================================================================
+-- Preguntas de selección múltiple
+-- ===========================================================================
+-- Una fila por opción elegida. "orden" conserva el orden en que se respondió
+-- (posición 1, 2, 3…), para que las vistas devuelvan las listas tal como en la base oficial.
+-- Borrar un titulado o empleador borra sus selecciones (CASCADE); una opción de catálogo
+-- en uso no se puede borrar.
+
+CREATE TABLE IF NOT EXISTS titulado_actividad (
+  titulado_id  INTEGER  NOT NULL REFERENCES titulados (id) ON DELETE CASCADE,
+  actividad_id SMALLINT NOT NULL REFERENCES actividades (id),
+  orden        SMALLINT NOT NULL CHECK (orden >= 1),
+  PRIMARY KEY (titulado_id, actividad_id),
+  UNIQUE (titulado_id, orden)
+);
+
+CREATE TABLE IF NOT EXISTS titulado_aspecto_util (
+  titulado_id INTEGER  NOT NULL REFERENCES titulados (id) ON DELETE CASCADE,
+  aspecto_id  SMALLINT NOT NULL REFERENCES aspectos_carrera (id),
+  orden       SMALLINT NOT NULL CHECK (orden >= 1),
+  PRIMARY KEY (titulado_id, aspecto_id),
+  UNIQUE (titulado_id, orden)
+);
+
+CREATE TABLE IF NOT EXISTS titulado_aspecto_mejorar (
+  titulado_id INTEGER  NOT NULL REFERENCES titulados (id) ON DELETE CASCADE,
+  aspecto_id  SMALLINT NOT NULL REFERENCES aspectos_carrera (id),
+  orden       SMALLINT NOT NULL CHECK (orden >= 1),
+  PRIMARY KEY (titulado_id, aspecto_id),
+  UNIQUE (titulado_id, orden)
+);
+
+CREATE TABLE IF NOT EXISTS titulado_asignatura_ventaja (
+  titulado_id   INTEGER  NOT NULL REFERENCES titulados (id) ON DELETE CASCADE,
+  asignatura_id SMALLINT NOT NULL REFERENCES asignaturas (id),
+  orden         SMALLINT NOT NULL CHECK (orden >= 1),
+  PRIMARY KEY (titulado_id, asignatura_id),
+  UNIQUE (titulado_id, orden)
+);
+
+CREATE TABLE IF NOT EXISTS titulado_asignatura_no_util (
+  titulado_id   INTEGER  NOT NULL REFERENCES titulados (id) ON DELETE CASCADE,
+  asignatura_id SMALLINT NOT NULL REFERENCES asignaturas (id),
+  orden         SMALLINT NOT NULL CHECK (orden >= 1),
+  PRIMARY KEY (titulado_id, asignatura_id),
+  UNIQUE (titulado_id, orden)
+);
+
+CREATE TABLE IF NOT EXISTS empleador_cargo (
+  empleador_id INTEGER  NOT NULL REFERENCES empleadores (id) ON DELETE CASCADE,
+  cargo_id     SMALLINT NOT NULL REFERENCES cargos_empleador (id),
+  orden        SMALLINT NOT NULL CHECK (orden >= 1),
+  PRIMARY KEY (empleador_id, cargo_id),
+  UNIQUE (empleador_id, orden)
 );
