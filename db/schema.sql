@@ -150,11 +150,7 @@ CREATE TABLE IF NOT EXISTS empleadores (
   cargos                   TEXT[] NOT NULL DEFAULT '{}',
   tendencias               TEXT,
   habilidades              TEXT,
-  -- Respuestas a las 18 afirmaciones (escala de LIKERT_EMPLEADOR)
-  item_01 TEXT, item_02 TEXT, item_03 TEXT, item_04 TEXT, item_05 TEXT, item_06 TEXT,
-  item_07 TEXT, item_08 TEXT, item_09 TEXT, item_10 TEXT, item_11 TEXT, item_12 TEXT,
-  item_13 TEXT, item_14 TEXT, item_15 TEXT, item_16 TEXT, item_17 TEXT, item_18 TEXT,
-  origen                   TEXT NOT NULL CHECK (origen IN ('base_oficial', 'formulario')),
+  origen                  TEXT NOT NULL CHECK (origen IN ('base_oficial', 'formulario')),
   created_at               TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -164,4 +160,12 @@ CREATE TABLE IF NOT EXISTS items_empleadores (
   afirmacion TEXT NOT NULL,
   origen     TEXT NOT NULL CHECK (origen IN ('base_oficial', 'formulario')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Respuesta de un empleador a una afirmación. Una afirmación sin respuesta no tiene fila.
+CREATE TABLE IF NOT EXISTS respuestas_empleador (
+  empleador_id INTEGER  NOT NULL REFERENCES empleadores (id) ON DELETE CASCADE,
+  item_id      INTEGER  NOT NULL REFERENCES items_empleadores (id),
+  valor_id     SMALLINT NOT NULL REFERENCES escala_likert_empleador (id),
+  PRIMARY KEY (empleador_id, item_id)
 );
