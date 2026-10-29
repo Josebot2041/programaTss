@@ -1,20 +1,16 @@
 import React, { useState } from 'react';
 import { Titulado, Empleador, ItemEmpleador } from '../types';
 import { DICCIONARIO_TITULADOS } from '../data/dictionary';
-import { SECTORES } from '../data/catalogos';
 import { importarArchivo, NOMBRE_BASE_REAL, type ProblemaImportacion } from '../utils/importador';
-import { aCSV, aXlsx, descargar, filasEmpleadores, filasTitulados } from '../utils/exportador';
+import { ExploradorDatos } from './ExploradorDatos';
 import {
   FileSpreadsheet,
-  Search,
-  Download,
   Upload,
   CheckCircle,
   RotateCcw,
   Database,
   AlertCircle,
-  AlertTriangle,
-  ArrowRight
+  AlertTriangle
 } from 'lucide-react';
 
 interface TabSurveysCollectionProps {
@@ -44,9 +40,6 @@ export const TabSurveysCollection: React.FC<TabSurveysCollectionProps> = ({
   onNavigate
 }) => {
   const [subTab, setSubTab] = useState<'explorador' | 'importar' | 'diccionario' | 'wrangling'>('importar');
-  const [activeDataSet, setActiveDataSet] = useState<'titulados' | 'empleadores'>('titulados');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterSector, setFilterSector] = useState('Todos');
 
   // Estado de la última importación
   const [importNotice, setImportNotice] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -105,30 +98,6 @@ export const TabSurveysCollection: React.FC<TabSurveysCollectionProps> = ({
     setImportNotice(null);
     onResetToOfficial();
   };
-
-  // Exportación: CSV de la tabla activa (BOM + ";") o libro .xlsx completo
-  const handleExportCSV = () => {
-    const filas = activeDataSet === 'titulados' ? filasTitulados(titulados) : filasEmpleadores(empleadores);
-    descargar(aCSV(filas), activeDataSet === 'titulados' ? 'Titulados_UMSS.csv' : 'Empleadores_UMSS.csv', 'text/csv;charset=utf-8');
-  };
-  const handleExportXlsx = async () => {
-    descargar(await aXlsx(titulados, empleadores), 'Base_y_Resultados_UMSS.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  };
-
-  // Filtrado de titulados para la tabla
-  const termino = searchTerm.toLowerCase();
-  const filteredTitulados = titulados.filter((t) => {
-    const matchesSearch =
-      t.id.toLowerCase().includes(termino) ||
-      (t.rubro?.toLowerCase().includes(termino) ?? false) ||
-      (t.cargo?.toLowerCase().includes(termino) ?? false) ||
-      (t.empresa?.toLowerCase().includes(termino) ?? false);
-    const matchesSector = filterSector === 'Todos' || t.sector === filterSector;
-    return matchesSearch && matchesSector;
-  });
-  const filteredEmpleadores = empleadores.filter(
-    (e) => e.id.toLowerCase().includes(termino) || e.organizacion.toLowerCase().includes(termino)
-  );
 
   const botonSubTab = (id: typeof subTab, contenido: React.ReactNode) => (
     <button
@@ -290,160 +259,7 @@ export const TabSurveysCollection: React.FC<TabSurveysCollectionProps> = ({
       )}
 
       {/* EXPLORADOR DE DATOS */}
-      {subTab === 'explorador' && (
-        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-100">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setActiveDataSet('titulados')}
-                className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${
-                  activeDataSet === 'titulados' ? 'bg-sky-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                Titulados ({titulados.length} registros)
-              </button>
-              <button
-                onClick={() => setActiveDataSet('empleadores')}
-                className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${
-                  activeDataSet === 'empleadores' ? 'bg-sky-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                Empleadores ({empleadores.length} registros)
-              </button>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
-                <input
-                  type="text"
-                  placeholder="Buscar en la base..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-md bg-slate-50 text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-sky-500 w-44 sm:w-56"
-                />
-              </div>
-
-              {activeDataSet === 'titulados' && (
-                <select
-                  value={filterSector}
-                  onChange={(e) => setFilterSector(e.target.value)}
-                  className="text-xs border border-slate-200 rounded-md px-2.5 py-1.5 bg-slate-50 text-slate-700"
-                >
-                  <option value="Todos">Todos los sectores</option>
-                  {SECTORES.map((s) => (
-                    <option key={s} value={s}>Sector {s.toLowerCase()}</option>
-                  ))}
-                </select>
-              )}
-
-              <button
-                onClick={handleExportCSV}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Exportar CSV</span>
-              </button>
-              <button
-                onClick={() => void handleExportXlsx()}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Exportar Excel</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Tabla de Titulados */}
-          {activeDataSet === 'titulados' && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left">
-                <thead className="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200">
-                  <tr>
-                    <th className="p-2.5">ID</th>
-                    <th className="p-2.5">Edad</th>
-                    <th className="p-2.5">Género</th>
-                    <th className="p-2.5 text-right">Experiencia</th>
-                    <th className="p-2.5">Segmento</th>
-                    <th className="p-2.5">Situación Laboral</th>
-                    <th className="p-2.5">Sector</th>
-                    <th className="p-2.5">Rubro</th>
-                    <th className="p-2.5">Remuneración</th>
-                    <th className="p-2.5">Posgrado Interés</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-mono">
-                  {filteredTitulados.slice(0, 50).map((t) => (
-                    <tr key={t.id} className="hover:bg-slate-50">
-                      <td className="p-2.5 font-bold text-sky-950 font-sans">{t.id}</td>
-                      <td className="p-2.5 font-sans">{t.edad}</td>
-                      <td className="p-2.5 font-sans">{t.genero}</td>
-                      <td className="p-2.5 text-right">{t.anios_vida_profesional !== undefined ? `${t.anios_vida_profesional} a.` : '—'}</td>
-                      <td className="p-2.5 font-sans">
-                        {t.segmento ? (
-                          <span className={`px-2 py-0.5 rounded text-[10px] ${t.segmento.startsWith('Junior') ? 'bg-sky-50 text-sky-800' : 'bg-slate-100 text-slate-800'}`}>
-                            {t.segmento}
-                          </span>
-                        ) : '—'}
-                      </td>
-                      <td className="p-2.5 font-sans truncate max-w-xs">{t.situacion_laboral}</td>
-                      <td className="p-2.5 font-sans">{t.sector ?? '—'}</td>
-                      <td className="p-2.5 font-sans">{t.rubro ?? '—'}</td>
-                      <td className="p-2.5 font-sans">{t.remuneracion ?? '—'}</td>
-                      <td className="p-2.5 font-sans font-semibold text-indigo-900">{t.area_interes ?? 'Sin interés'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="p-2.5 text-[11px] text-slate-500 text-right border-t border-slate-100">
-                Mostrando primeros {Math.min(50, filteredTitulados.length)} de {filteredTitulados.length} registros
-              </div>
-            </div>
-          )}
-
-          {/* Tabla de Empleadores */}
-          {activeDataSet === 'empleadores' && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left">
-                <thead className="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200">
-                  <tr>
-                    <th className="p-2.5">ID</th>
-                    <th className="p-2.5">Organización / Empresa</th>
-                    <th className="p-2.5">Tipo</th>
-                    <th className="p-2.5">Tamaño</th>
-                    <th className="p-2.5">Rubro Principal</th>
-                    <th className="p-2.5 text-center">Contrató 5a</th>
-                    <th className="p-2.5">Posibilidad Contratación</th>
-                    <th className="p-2.5">Nivel Exigido</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-sans">
-                  {filteredEmpleadores.map((e) => (
-                    <tr key={e.id} className="hover:bg-slate-50">
-                      <td className="p-2.5 font-mono font-bold text-sky-950">{e.id}</td>
-                      <td className="p-2.5 font-semibold text-slate-900">{e.organizacion}</td>
-                      <td className="p-2.5">{e.tipo}</td>
-                      <td className="p-2.5">{e.tamano}</td>
-                      <td className="p-2.5 truncate max-w-xs">{e.rubro ?? '—'}</td>
-                      <td className="p-2.5 text-center font-mono font-bold text-slate-700">{e.contrato_5_anios ?? '—'}</td>
-                      <td className="p-2.5">{e.posibilidad_contratacion ?? '—'}</td>
-                      <td className="p-2.5 font-medium text-sky-900">{e.nivel_demandado ?? '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          <button
-            onClick={() => onNavigate(activeDataSet === 'titulados' ? 'encuesta_titulados' : 'encuesta_empleadores')}
-            className="flex items-center gap-1.5 text-xs font-semibold text-sky-900 hover:underline"
-          >
-            <span>Registrar una nueva encuesta de {activeDataSet === 'titulados' ? 'titulado' : 'empleador'}</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
+      {subTab === 'explorador' && <ExploradorDatos titulados={titulados} empleadores={empleadores} onNavigate={onNavigate} />}
 
       {/* DICCIONARIO DE VARIABLES (Anexo C) */}
       {subTab === 'diccionario' && (

@@ -6,11 +6,14 @@ import {
   Cpu,
   Database,
   FileText,
+  Gauge,
   GraduationCap,
   Home,
   Layers,
+  LineChart,
   Printer,
   UserCheck,
+  Users,
   X
 } from 'lucide-react';
 import { INFO_INSTITUCIONAL } from '../data/strategicPlan';
@@ -34,6 +37,8 @@ interface SidebarProps {
   empleadoresCount: number;
   isOpenMobile: boolean;
   onCloseMobile: () => void;
+  /** Muestra la sección "Administración" (solo para administradores). */
+  esAdmin?: boolean;
 }
 
 /** Navegación principal: etiquetas de 2 a 4 palabras, agrupadas por propósito. */
@@ -68,6 +73,20 @@ export const NAVEGACION: NavSection[] = [
   }
 ];
 
+/** Sección visible solo para administradores; sus ids empiezan con "admin". */
+export const NAVEGACION_ADMIN: NavSection = {
+  group: 'Administración',
+  items: [
+    { id: 'admin', label: 'Panel de control', icon: Gauge },
+    { id: 'admin_usuarios', label: 'Usuarios', icon: Users },
+    { id: 'admin_titulados', label: 'Titulados', icon: GraduationCap },
+    { id: 'admin_empleadores', label: 'Empleadores', icon: Building2 },
+    { id: 'admin_dashboard', label: 'Dashboard', icon: LineChart }
+  ]
+};
+
+export const esPestanaAdmin = (id: string) => NAVEGACION_ADMIN.items.some((i) => i.id === id);
+
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   setActiveTab,
@@ -75,7 +94,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   tituladosCount,
   empleadoresCount,
   isOpenMobile,
-  onCloseMobile
+  onCloseMobile,
+  esAdmin = false
 }) => {
   const seleccionar = (id: string) => {
     setActiveTab(id);
@@ -102,7 +122,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5" aria-label="Secciones">
-          {NAVEGACION.map((seccion) => (
+          {(esAdmin ? [...NAVEGACION, NAVEGACION_ADMIN] : NAVEGACION).map((seccion) => (
             <div key={seccion.group}>
               <div className="px-2 mb-1 text-xs font-medium text-slate-500">{seccion.group}</div>
               <ul className="space-y-0.5">

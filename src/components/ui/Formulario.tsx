@@ -1,7 +1,8 @@
 /**
  * Controles de formulario compartidos. Todos empiezan sin valor y muestran su error debajo.
  */
-import React from 'react';
+import React, { useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 
 const claseControl = (error?: string) =>
   `w-full border rounded px-2.5 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-institucional ${
@@ -72,7 +73,8 @@ export function CampoTexto({
   obligatorio = false,
   tipo = 'text',
   ayuda,
-  multilinea = false
+  multilinea = false,
+  autoComplete
 }: {
   id: string;
   etiqueta: string;
@@ -83,9 +85,11 @@ export function CampoTexto({
   tipo?: 'text' | 'number';
   ayuda?: string;
   multilinea?: boolean;
+  autoComplete?: string;
 }) {
   const comunes = {
     id,
+    autoComplete,
     value: valor,
     'aria-invalid': error ? true : undefined,
     'aria-describedby': error ? `${id}-error` : undefined,
@@ -99,6 +103,59 @@ export function CampoTexto({
         <input {...comunes} type={tipo} step={tipo === 'number' ? 'any' : undefined} min={tipo === 'number' ? 0 : undefined} onChange={(e) => onCambiar(e.target.value)} />
       )}
       {ayuda && !error && <p className="mt-1 text-xs text-slate-500">{ayuda}</p>}
+    </Etiqueta>
+  );
+}
+
+/** Contraseña con un botón para mostrarla u ocultarla. */
+export function CampoContrasena({
+  id,
+  etiqueta,
+  valor,
+  onCambiar,
+  error,
+  ayuda,
+  autoComplete
+}: {
+  id: string;
+  etiqueta: string;
+  valor: string;
+  onCambiar: (v: string) => void;
+  error?: string;
+  ayuda?: string;
+  autoComplete: 'current-password' | 'new-password';
+}) {
+  const [visible, setVisible] = useState(false);
+  const descripcion = error ? `${id}-error` : ayuda ? `${id}-ayuda` : undefined;
+  return (
+    <Etiqueta id={id} texto={etiqueta} obligatorio error={error}>
+      <div className="relative">
+        <input
+          id={id}
+          type={visible ? 'text' : 'password'}
+          value={valor}
+          autoComplete={autoComplete}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={descripcion}
+          onChange={(e) => onCambiar(e.target.value)}
+          className={`${claseControl(error)} pr-10`}
+        />
+        <button
+          type="button"
+          onClick={() => setVisible((v) => !v)}
+          aria-label={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+          aria-pressed={visible}
+          aria-controls={id}
+          className="absolute inset-y-0 right-0 px-2.5 flex items-center text-slate-500 hover:text-slate-800"
+        >
+          {visible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+        </button>
+      </div>
+      {ayuda && !error && (
+        <p id={`${id}-ayuda`} className="mt-1 text-xs text-slate-500">
+          {ayuda}
+        </p>
+      )}
     </Etiqueta>
   );
 }
