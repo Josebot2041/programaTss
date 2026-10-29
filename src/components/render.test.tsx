@@ -20,6 +20,13 @@ import { TabProfileGraduates } from './TabProfileGraduates';
 import { TabSimulationEngine } from './TabSimulationEngine';
 import { TabStrategicPlan } from './TabStrategicPlan';
 import { TabSurveysCollection } from './TabSurveysCollection';
+import { ExploradorDatos } from './ExploradorDatos';
+import { PantallaAcceso } from './PantallaAcceso';
+import { AccesosDashboard } from './admin/AccesosDashboard';
+import { AdminUsuarios } from './admin/AdminUsuarios';
+import { PanelControl } from './admin/PanelControl';
+import { RegistrosPorDia } from './graficos/RegistrosPorDia';
+import type { Usuario } from '../utils/validacionUsuario';
 
 const buffer = readFileSync(resolve(import.meta.dirname, '../../public/data/Base_Limpia_Titulados_Empleadores.xlsx'));
 const base = await importarArchivo(
@@ -30,6 +37,15 @@ const titulados = base.titulados ?? [];
 const empleadores = base.empleadores ?? [];
 const nada = () => undefined;
 const guardarNada = async () => ({ ok: false as const, errores: {} });
+const admin: Usuario = {
+  id: 1,
+  nombre_completo: 'Ana Quispe',
+  ci: '1234567 LP',
+  rol: 'admin',
+  activo: true,
+  created_at: '2026-10-29T12:00:00.000Z',
+  ultimo_acceso: null
+};
 
 const pantallas: Array<[string, React.ReactElement]> = [
   ['Sidebar', <Sidebar activeTab="overview" setActiveTab={nada} onOpenReport={nada} tituladosCount={148} empleadoresCount={51} isOpenMobile={false} onCloseMobile={nada} />],
@@ -57,7 +73,18 @@ const pantallas: Array<[string, React.ReactElement]> = [
   ],
   ['Encuesta titulados', <FormTituladosSurvey onGuardarTitulado={guardarNada} onNavigateToAnalytics={nada} idsExistentes={titulados.map((t) => t.id)} />],
   ['Encuesta empleadores', <FormEmpleadoresSurvey onGuardarEmpleador={guardarNada} onNavigateToAnalytics={nada} idsExistentes={empleadores.map((e) => e.id)} />],
-  ['Informe imprimible', <OfficialReportModal isOpen onClose={nada} titulados={titulados} empleadores={empleadores} />]
+  ['Informe imprimible', <OfficialReportModal isOpen onClose={nada} titulados={titulados} empleadores={empleadores} />],
+  ['Sidebar de administrador', <Sidebar activeTab="admin" setActiveTab={nada} onOpenReport={nada} tituladosCount={148} empleadoresCount={51} isOpenMobile={false} onCloseMobile={nada} esAdmin />],
+  ['Header con sesión', <Header activeTab="admin_usuarios" onOpenReport={nada} tituladosCount={148} empleadoresCount={51} onToggleMobileMenu={nada} usuario={admin} onCerrarSesion={nada} />],
+  ['Iniciar sesión', <PantallaAcceso onAutenticado={nada} aviso="Su sesión terminó." />],
+  ['Panel de control', <PanelControl />],
+  ['Usuarios', <AdminUsuarios usuarioActual={admin} />],
+  ['Tabla de empleadores', <ExploradorDatos titulados={titulados} empleadores={empleadores} conjunto="empleadores" onNavigate={nada} />],
+  ['Dashboard', <AccesosDashboard onNavigate={nada} />],
+  [
+    'Registros por día',
+    <RegistrosPorDia dias={[{ fecha: '2026-10-28', titulados: 2, empleadores: 1 }, { fecha: '2026-10-29', titulados: 0, empleadores: 0 }]} />
+  ]
 ];
 
 /** Texto visible de un elemento renderizado (sin etiquetas HTML). */
@@ -253,5 +280,36 @@ describe('Escenarios de decisión: resultados y textos generados', () => {
 describe('Renderizado de la interfaz con la base real', () => {
   it.each(pantallas)('%s se renderiza sin errores', (_nombre, elemento) => {
     expect(renderToStaticMarkup(elemento).length).toBeGreaterThan(100);
+  });
+});
+
+describe('Autenticación y administración', () => {
+  it('el Header muestra el nombre, el rol y «Cerrar sesión»', () => {
+    const texto = textoVisible(<Header activeTab="admin" onOpenReport={nada} tituladosCount={1} empleadoresCount={1} onToggleMobileMenu={nada} usuario={admin} onCerrarSesion={nada} />);
+    expect(texto).toContain('Ana Quispe');
+    expect(texto).toContain('Administrador');
+    expect(texto).toContain('Cerrar sesión');
+    expect(texto).toContain('Administración / Panel de control');
+  });
+
+  it('la sección Administración del Sidebar solo aparece para administradores', () => {
+    const props = { activeTab: 'overview', setActiveTab: nada, onOpenReport: nada, tituladosCount: 1, empleadoresCount: 1, isOpenMobile: false, onCloseMobile: nada };
+    expect(textoVisible(<Sidebar {...props} />)).not.toContain('Administración');
+    const texto = textoVisible(<Sidebar {...props} esAdmin />);
+    for (const etiqueta of ['Administración', 'Panel de control', 'Usuarios', 'Titulados', 'Empleadores', 'Dashboard']) expect(texto).toContain(etiqueta);
+  });
+
+  it('la pantalla de acceso tiene CI, contraseña con botón para mostrarla y enlace a «Crear cuenta»', () => {
+    const html = renderToStaticMarkup(<PantallaAcceso onAutenticado={nada} />);
+    expect(html).toContain('autoComplete="username"');
+    expect(html).toContain('type="password"');
+    expect(html).toContain('aria-label="Mostrar contraseña"');
+    expect(textoVisible(<PantallaAcceso onAutenticado={nada} />)).toContain('Crear cuenta');
+  });
+
+  it('el gráfico por día tiene su tabla con los totales', () => {
+    const texto = textoVisible(<RegistrosPorDia dias={[{ fecha: '2026-10-28', titulados: 2, empleadores: 1 }]} />);
+    expect(texto).toContain('Titulados Empleadores Total');
+    expect(texto).toMatch(/mié 28\/10 2 1 3/);
   });
 });

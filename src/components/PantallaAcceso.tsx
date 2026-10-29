@@ -24,7 +24,7 @@ function mensajeDe(err: unknown): string {
  * que devuelve el servidor junto a cada campo.
  */
 export function PantallaAcceso({ onAutenticado, aviso }: { onAutenticado: (usuario: Usuario) => void; aviso?: string }) {
-  const [modo, setModo] = useState<Modo>(() => (window.location.hash === '#registro' ? 'registro' : 'login'));
+  const [modo, setModo] = useState<Modo>(() => (typeof window !== 'undefined' && window.location.hash === '#registro' ? 'registro' : 'login'));
   const [datos, setDatos] = useState(VACIO);
   const [errores, setErrores] = useState<Errores>({});
   const [mensaje, setMensaje] = useState('');
