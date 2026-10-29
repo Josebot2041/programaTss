@@ -1,6 +1,7 @@
 /**
  * Cliente de la API del backend (/api/*, ver server/).
- * Si la API no responde, la aplicación usa el Excel local como respaldo (ver App.tsx).
+ * Si la API no responde o falla (5xx), la aplicación usa el Excel local como respaldo y lo indica
+ * en el Header (ver App.tsx). Un 401 nunca lleva al Excel: vuelve al login.
  * La sesión viaja en una cookie httpOnly que el navegador envía solo (mismo origen).
  */
 
@@ -31,6 +32,11 @@ export class ErrorApi extends Error {
   }
 }
 
+/** true si el error es de conexión o del servidor (5xx): solo entonces se usa el Excel de respaldo. */
+export function esFallaDelServidor(err: unknown): boolean {
+  return err instanceof ErrorApi && (err.estado === 0 || err.estado >= 500);
+}
+
 // La aplicación se suscribe para volver al login cuando la sesión vence o se cierra en otro lado.
 let alPerderSesion: (() => void) | undefined;
 export function avisarAlPerderSesion(fn: (() => void) | undefined) {
@@ -46,16 +52,22 @@ async function pedir<T>(metodo: string, ruta: string, cuerpo?: unknown): Promise
       headers: cuerpo === undefined ? undefined : { 'Content-Type': 'application/json' },
       body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo),
       credentials: 'same-origin',
+      // Siempre datos frescos de la base, nunca una copia guardada por el navegador
+      cache: 'no-store',
       signal: AbortSignal.timeout(ESPERA_MS)
     });
   } catch {
     throw new ErrorApi(0, 'No se pudo conectar con el servidor.');
   }
-  const datos = (await respuesta.json().catch(() => ({}))) as { error?: string; errores?: Errores };
-  if (respuesta.ok) return datos as T;
+  const datos = (await respuesta.json().catch(() => undefined)) as { error?: string; errores?: Errores } | undefined;
+  if (respuesta.ok) {
+    // Un 2xx que no es JSON (p. ej. index.html de un servidor estático) significa que no hay API detrás
+    if (datos === undefined) throw new ErrorApi(0, 'El servidor no respondió como la API.');
+    return datos as T;
+  }
   // 401 en una ruta protegida: la sesión ya no es válida (el login responde 401 por otra razón)
   if (respuesta.status === 401 && ruta !== 'auth/login' && ruta !== 'auth/yo') alPerderSesion?.();
-  throw new ErrorApi(respuesta.status, datos.error ?? `El servidor respondió HTTP ${respuesta.status}.`, datos.errores);
+  throw new ErrorApi(respuesta.status, datos?.error ?? `El servidor respondió HTTP ${respuesta.status}.`, datos?.errores);
 }
 
 /** Carga titulados, empleadores y afirmaciones desde la base de datos. */

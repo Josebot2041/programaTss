@@ -18,8 +18,8 @@ import { EncabezadoPagina, Nota } from './ui/Estructura';
 import { CampoCasillas, CampoOpciones, CampoSelect, CampoTexto, GrupoFormulario } from './ui/Formulario';
 
 interface FormEmpleadoresSurveyProps {
-  /** Guarda la encuesta (en la API o, sin conexión, en memoria) y devuelve el registro guardado. */
-  onGuardarEmpleador: (borrador: BorradorEmpleador, registroLocal: Empleador) => Promise<ResultadoGuardado<Empleador>>;
+  /** Guarda la encuesta en la base (API) y devuelve el registro guardado o los errores. */
+  onGuardarEmpleador: (borrador: BorradorEmpleador) => Promise<ResultadoGuardado<Empleador>>;
   onNavigateToAnalytics: () => void;
   idsExistentes: string[];
 }
@@ -55,7 +55,7 @@ export const FormEmpleadoresSurvey: React.FC<FormEmpleadoresSurveyProps> = ({ on
     if (!r.registro) return;
 
     setEnviando(true);
-    const resultado = await onGuardarEmpleador(b, r.registro);
+    const resultado = await onGuardarEmpleador(b);
     setEnviando(false);
     if (resultado.ok) {
       setGuardado(resultado.registro.id);

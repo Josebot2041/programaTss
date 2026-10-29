@@ -2,8 +2,12 @@
  * Pruebas de extremo a extremo de la web ARCU-SUR (Playwright): npm run test:e2e
  *
  * P8 · Autenticación: registro, login, logout, acceso denegado al panel para un usuario normal
- * y acceso al panel para un administrador. Los usuarios de prueba tienen CI que empiezan con 94,
- * una contraseña generada al azar en cada ejecución, y se borran (con sus sesiones) al terminar.
+ * y acceso al panel para un administrador.
+ * P9 · Persistencia: una encuesta guardada sigue en la base al recargar y al volver a iniciar
+ * sesión; un 401 lleva al login (nunca al Excel) y un 5xx al Excel de respaldo, indicado en el Header.
+ *
+ * Los usuarios de prueba tienen CI que empiezan con 94 y una contraseña generada al azar en cada
+ * ejecución. Al terminar se borran (con sus sesiones), igual que las encuestas registradas.
  */
 import 'dotenv/config';
 import { randomBytes, randomInt } from 'node:crypto';
@@ -42,6 +46,20 @@ async function iniciarSesion(page: Page, ci: string, password = PASSWORD) {
 
 const usuarioActual = (page: Page) => page.getByTestId('usuario-actual');
 const menu = (page: Page) => page.getByRole('navigation', { name: 'Secciones' });
+const fuenteDatos = (page: Page) => page.getByTestId('fuente-datos');
+
+async function contarTitulados(): Promise<number> {
+  const { rows } = await pool.query<{ total: number }>('SELECT count(*)::int AS total FROM titulados');
+  return rows[0].total;
+}
+
+test.afterAll(async () => {
+  const { rows } = await pool.query<{ id: number }>('SELECT id FROM usuarios WHERE ci LIKE ANY ($1)', [cisCreados.map((ci) => `${ci}%`)]);
+  const ids = rows.map((r) => String(r.id));
+  await pool.query(`DELETE FROM sesiones WHERE sess->>'usuarioId' = ANY ($1)`, [ids]);
+  await pool.query('DELETE FROM usuarios WHERE id = ANY ($1::int[])', [ids]);
+  await pool.end();
+});
 
 test.describe('P8 · Autenticación', () => {
   test.describe.configure({ mode: 'serial' });
@@ -54,13 +72,6 @@ test.describe('P8 · Autenticación', () => {
     admin = await crearUsuario('Administrador De Prueba', 'admin');
   });
 
-  test.afterAll(async () => {
-    const { rows } = await pool.query<{ id: number }>('SELECT id FROM usuarios WHERE ci LIKE ANY ($1)', [cisCreados.map((ci) => `${ci}%`)]);
-    const ids = rows.map((r) => String(r.id));
-    await pool.query(`DELETE FROM sesiones WHERE sess->>'usuarioId' = ANY ($1)`, [ids]);
-    await pool.query('DELETE FROM usuarios WHERE id = ANY ($1::int[])', [ids]);
-    await pool.end();
-  });
 
   test('P8.1 Registro: valida el formulario, crea la cuenta y entra como usuario', async ({ page }) => {
     const ci = nuevoCi();
@@ -155,5 +166,96 @@ test.describe('P8 · Autenticación', () => {
     // Un enlace directo a #admin también funciona para el administrador
     await page.goto('/#admin');
     await expect(page.getByRole('heading', { name: 'Panel de control' })).toBeVisible();
+  });
+});
+
+test.describe('P9 · Persistencia de las encuestas', () => {
+  test.describe.configure({ mode: 'serial' });
+
+  let usuario: { nombre: string; ci: string };
+  const tituladosCreados: number[] = [];
+
+  test.beforeAll(async () => {
+    usuario = await crearUsuario('Encuestadora De Prueba', 'usuario');
+  });
+
+  test.afterAll(async () => {
+    if (tituladosCreados.length === 0) return;
+    await pool.query('DELETE FROM titulados WHERE id = ANY ($1::int[])', [tituladosCreados]);
+    // La próxima encuesta real recibe el número que le correspondía
+    await pool.query(`SELECT setval(pg_get_serial_sequence('titulados', 'id'), (SELECT max(id) FROM titulados))`);
+  });
+
+  test('P9.1 Una encuesta guardada sigue en la base al recargar y al volver a iniciar sesión', async ({ page }) => {
+    // Con la base oficial (148 titulados), el contador pasa a 149
+    const antes = await contarTitulados();
+    await iniciarSesion(page, usuario.ci);
+    await expect(fuenteDatos(page)).toContainText(`Base de datos · ${antes} titulados`);
+
+    await page.goto('/#encuesta_titulados');
+    await page.locator('#tit-edad').selectOption('23 - 26 años');
+    await page.locator('#tit-genero').selectOption('Mujer');
+    await page.locator('#tit-vida').fill('3');
+    await page.locator('#tit-desempleo').fill('0');
+    await page.locator('#tit-formacion_complementaria').selectOption('No');
+    await page.locator('#tit-interes_posgrado').selectOption('No');
+    await page.locator('#tit-situacion_laboral').selectOption('No trabaja');
+    for (const pregunta of [/Satisfacción global/, /Concordancia entre/, /posgrados afines/]) {
+      await page.getByRole('group', { name: pregunta }).getByRole('radio').nth(3).click();
+    }
+    const guardado = page.waitForResponse((r) => r.url().endsWith('/api/titulados') && r.request().method() === 'POST');
+    await page.getByRole('button', { name: 'Guardar encuesta' }).click();
+    const respuesta = await guardado;
+    expect(respuesta.status()).toBe(201);
+    const { id } = (await respuesta.json()) as { id: string };
+    tituladosCreados.push(Number(id));
+
+    // El contador sale de los datos recargados desde la API y coincide con la base
+    await expect(page.getByText(`Se registró la encuesta n.º ${id}`)).toBeVisible();
+    await expect(fuenteDatos(page)).toContainText(`Base de datos · ${antes + 1} titulados`);
+    expect(await contarTitulados()).toBe(antes + 1);
+
+    // Al recargar la página la sesión sigue y el contador no vuelve al Excel
+    await page.reload();
+    await expect(fuenteDatos(page)).toContainText(`Base de datos · ${antes + 1} titulados`);
+
+    // Sin la cookie (como al abrir la web otro día): login y otra vez los datos de la base
+    await page.context().clearCookies();
+    await iniciarSesion(page, usuario.ci);
+    await expect(usuarioActual(page)).toContainText(usuario.nombre);
+    await expect(fuenteDatos(page)).toContainText(`Base de datos · ${antes + 1} titulados`);
+    await expect(page.getByText('Respaldo Excel')).toHaveCount(0);
+  });
+
+  test('P9.2 Un 401 al pedir los datos lleva al login, nunca al Excel', async ({ page }) => {
+    await iniciarSesion(page, usuario.ci);
+    await expect(fuenteDatos(page)).toContainText('Base de datos');
+
+    const pedidosExcel: string[] = [];
+    page.on('request', (r) => {
+      if (r.url().endsWith('.xlsx')) pedidosExcel.push(r.url());
+    });
+    await page.route('**/api/titulados', (ruta) => ruta.fulfill({ status: 401, json: { error: 'Inicie sesión para continuar' } }));
+    await page.reload();
+
+    await expect(page.getByRole('heading', { name: 'Iniciar sesión' })).toBeVisible();
+    await expect(page.getByText('Su sesión terminó')).toBeVisible();
+    expect(pedidosExcel).toEqual([]);
+  });
+
+  test('P9.3 Con el servidor caído (5xx) usa el Excel de respaldo, lo indica y permite reintentar', async ({ page }) => {
+    const total = await contarTitulados();
+    await iniciarSesion(page, usuario.ci);
+    await expect(fuenteDatos(page)).toContainText(`Base de datos · ${total} titulados`);
+
+    await page.route('**/api/titulados', (ruta) => ruta.fulfill({ status: 502, json: { error: 'Bad Gateway' } }));
+    await page.reload();
+    await expect(fuenteDatos(page)).toContainText('Respaldo Excel (sin conexión)');
+    await expect(page.getByText(/se muestran los datos de respaldo/)).toBeVisible();
+
+    await page.unroute('**/api/titulados');
+    await fuenteDatos(page).getByRole('button', { name: 'Reintentar' }).click();
+    await expect(fuenteDatos(page)).toContainText(`Base de datos · ${total} titulados`);
+    await expect(page.getByText(/se muestran los datos de respaldo/)).toHaveCount(0);
   });
 });

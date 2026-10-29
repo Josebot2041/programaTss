@@ -12,6 +12,7 @@ import {
   cargarDesdeApi,
   cerrarSesion,
   ErrorApi,
+  esFallaDelServidor,
   guardarEmpleador,
   guardarTitulado,
   obtenerSesion,
@@ -20,7 +21,7 @@ import {
 import type { BorradorEmpleador, BorradorTitulado } from './utils/validacion';
 import type { Usuario } from './utils/validacionUsuario';
 import { esPestanaAdmin, NAVEGACION_ADMIN, Sidebar } from './components/Sidebar';
-import { Header } from './components/Header';
+import { Header, type FuenteDatos } from './components/Header';
 import { PantallaAcceso } from './components/PantallaAcceso';
 import { EncabezadoPagina } from './components/ui/Estructura';
 import { INFO_INSTITUCIONAL } from './data/strategicPlan';
@@ -90,8 +91,12 @@ export default function App() {
   const [reportModalOpen, setReportModalOpen] = useState<boolean>(() => window.location.hash === '#informe');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
 
-  // 'api': datos de PostgreSQL; 'excel': respaldo local porque la API no respondió
-  const [fuente, setFuente] = useState<'api' | 'excel'>('api');
+  // 'api': datos de PostgreSQL; 'excel': respaldo local porque la API no respondió; 'archivo': un
+  // archivo importado a mano en «Base de datos». El Header muestra siempre cuál está activa.
+  const [fuente, setFuente] = useState<FuenteDatos>('api');
+  // false si la última recarga en segundo plano falló: los datos a la vista pueden estar atrasados
+  const [alDia, setAlDia] = useState(true);
+  const [recargando, setRecargando] = useState(false);
 
   // Sesión: se consulta al abrir la web; si la API no responde se muestra el login con un aviso
   useEffect(() => {
@@ -138,9 +143,17 @@ export default function App() {
     }
   }, [usuario, esAdmin, activeTab]);
 
-  // Carga (o recarga) los datos desde la API; si no responde, usa la base real de public/data
-  const cargarBase = useCallback(async () => {
-    setEstadoCarga('cargando');
+  /**
+   * Pide los datos a la API (solo con sesión). Según el error:
+   * - 401: la sesión terminó; avisarAlPerderSesion ya volvió al login. Nunca se usa el Excel.
+   * - Sin conexión o 5xx: se usa el Excel de public/data como respaldo, indicado en el Header.
+   * - Otro error (403, 404…): pantalla de error con «Reintentar».
+   * En segundo plano (`silencioso`) no se muestra la pantalla de carga y, si falla, se conservan los
+   * datos a la vista marcados como «sin actualizar». Devuelve true si los datos vienen de la API.
+   */
+  const cargarBase = useCallback(async (silencioso = false): Promise<boolean> => {
+    if (silencioso) setRecargando(true);
+    else setEstadoCarga('cargando');
     try {
       const datos = await cargarDesdeApi();
       setTitulados(datos.titulados);
@@ -148,12 +161,22 @@ export default function App() {
       setItemsEmpleadores(datos.items);
       setProblemasBase([]);
       setFuente('api');
+      setAlDia(true);
       setEstadoCarga('listo');
-      return;
+      return true;
     } catch (err) {
-      // 401: la sesión terminó y avisarAlPerderSesion ya volvió al login. Otro error: sin API,
-      // se sigue con el Excel local.
-      if (err instanceof ErrorApi && err.estado === 401) return;
+      if (err instanceof ErrorApi && err.estado === 401) return false;
+      if (silencioso) {
+        setAlDia(false);
+        return false;
+      }
+      if (!esFallaDelServidor(err)) {
+        setErrorCarga(err instanceof Error ? err.message : String(err));
+        setEstadoCarga('error');
+        return false;
+      }
+    } finally {
+      setRecargando(false);
     }
     try {
       const resultado = await cargarBaseReal();
@@ -162,46 +185,51 @@ export default function App() {
       setItemsEmpleadores(resultado.items ?? []);
       setProblemasBase(resultado.problemas);
       setFuente('excel');
+      setAlDia(true);
       setEstadoCarga('listo');
     } catch (err) {
       setErrorCarga(err instanceof Error ? err.message : String(err));
       setEstadoCarga('error');
     }
+    return false;
   }, []);
 
-  // Los datos se piden al iniciar sesión (sin sesión la API responde 401)
+  // Los datos se piden solo con sesión: al confirmarla con /api/auth/yo y en cada inicio de sesión.
+  // Al cerrarla se descartan, para que el próximo usuario no vea los anteriores ni un instante.
   const usuarioId = usuario?.id;
   useEffect(() => {
-    if (usuarioId !== undefined) void cargarBase();
+    if (usuarioId !== undefined) {
+      void cargarBase();
+      return;
+    }
+    setTitulados([]);
+    setEmpleadores([]);
+    setItemsEmpleadores([]);
+    setEstadoCarga('cargando');
   }, [usuarioId, cargarBase]);
 
-  // Vuelve a pedir los datos sin la pantalla de carga, para que los análisis incluyan la nueva encuesta
-  const refrescarDesdeApi = async () => {
-    const datos = await cargarDesdeApi();
-    setTitulados(datos.titulados);
-    setEmpleadores(datos.empleadores);
-  };
+  // Al volver a la pestaña se recargan los datos (otra persona pudo registrar encuestas mientras tanto),
+  // salvo que se esté analizando un archivo importado a mano
+  const hayDatos = usuarioId !== undefined && estadoCarga === 'listo';
+  useEffect(() => {
+    if (!hayDatos || fuente === 'archivo') return;
+    const alVolver = () => {
+      if (document.visibilityState === 'visible') void cargarBase(true);
+    };
+    document.addEventListener('visibilitychange', alVolver);
+    return () => document.removeEventListener('visibilitychange', alVolver);
+  }, [hayDatos, fuente, cargarBase]);
 
-  // Sin API, la encuesta solo se agrega en memoria (como antes de existir el backend)
-  const handleGuardarTitulado = async (b: BorradorTitulado, local: Titulado): Promise<ResultadoGuardado<Titulado>> => {
-    if (fuente === 'excel') {
-      setTitulados((prev) => [local, ...prev]);
-      return { ok: true, registro: local };
-    }
-    const r = await guardarTitulado(b);
-    if (r.ok) await refrescarDesdeApi().catch(() => setTitulados((prev) => [...prev, r.registro]));
+  // La encuesta siempre se envía a la API (también desde el respaldo Excel, por si volvió la conexión)
+  // y después se recargan los datos desde la base: el contador muestra lo que hay en PostgreSQL.
+  // Nada se agrega solo en memoria: si no se pudo guardar, el formulario lo informa.
+  const guardarYRecargar = async <T,>(guardar: () => Promise<ResultadoGuardado<T>>): Promise<ResultadoGuardado<T>> => {
+    const r = await guardar();
+    if (r.ok) await cargarBase(true);
     return r;
   };
-
-  const handleGuardarEmpleador = async (b: BorradorEmpleador, local: Empleador): Promise<ResultadoGuardado<Empleador>> => {
-    if (fuente === 'excel') {
-      setEmpleadores((prev) => [local, ...prev]);
-      return { ok: true, registro: local };
-    }
-    const r = await guardarEmpleador(b);
-    if (r.ok) await refrescarDesdeApi().catch(() => setEmpleadores((prev) => [...prev, r.registro]));
-    return r;
-  };
+  const handleGuardarTitulado = (b: BorradorTitulado) => guardarYRecargar(() => guardarTitulado(b));
+  const handleGuardarEmpleador = (b: BorradorEmpleador) => guardarYRecargar(() => guardarEmpleador(b));
 
   if (usuario === undefined) {
     return (
@@ -272,6 +300,10 @@ export default function App() {
           onToggleMobileMenu={() => setIsMobileSidebarOpen(true)}
           usuario={usuario}
           onCerrarSesion={() => void handleCerrarSesion()}
+          fuente={fuente}
+          alDia={alDia}
+          recargando={recargando}
+          onReintentar={() => void cargarBase(true)}
         />
 
         {/* Dynamic Content Viewport */}
@@ -288,13 +320,11 @@ export default function App() {
             </div>
           )}
           {fuente === 'excel' && (
-            <p role="status" className="mb-4 flex items-start gap-1.5 text-xs text-slate-500 print:hidden">
-              <CloudOff className="w-3.5 h-3.5 mt-px shrink-0" aria-hidden="true" />
+            <p className="mb-4 flex items-start gap-1.5 border-l-4 border-resalte bg-resalte-fondo px-3 py-2 text-xs text-slate-700 print:hidden">
+              <CloudOff className="w-3.5 h-3.5 mt-px shrink-0 text-resalte" aria-hidden="true" />
               <span>
-                Sin conexión con el servidor: se muestran los datos de {NOMBRE_BASE_REAL} y las encuestas nuevas no se guardarán en la base de datos.{' '}
-                <button onClick={() => void cargarBase()} className="text-institucional hover:underline">
-                  Reintentar
-                </button>
+                Sin conexión con el servidor: se muestran los datos de respaldo de {NOMBRE_BASE_REAL}, no los de la base de datos. Las
+                encuestas nuevas se podrán guardar cuando vuelva la conexión.
               </span>
             </p>
           )}
@@ -328,8 +358,14 @@ export default function App() {
               titulados={titulados}
               empleadores={empleadores}
               onNavigate={irA}
-              onSetTitulados={(newTitulados) => setTitulados(newTitulados)}
-              onSetEmpleadores={(newEmpleadores) => setEmpleadores(newEmpleadores)}
+              onSetTitulados={(newTitulados) => {
+                setTitulados(newTitulados);
+                setFuente('archivo');
+              }}
+              onSetEmpleadores={(newEmpleadores) => {
+                setEmpleadores(newEmpleadores);
+                setFuente('archivo');
+              }}
               onSetItems={(nuevosItems: ItemEmpleador[]) => setItemsEmpleadores(nuevosItems)}
               itemsCount={itemsEmpleadores.length}
               problemasBase={problemasBase}

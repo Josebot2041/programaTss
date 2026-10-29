@@ -254,6 +254,15 @@ describe.skipIf(!hayBase)('API de autenticación', () => {
       expect(r.body.length).toBeGreaterThanOrEqual(148);
     });
 
+    it('las respuestas GET no se guardan en caché (con y sin sesión)', async () => {
+      const c = new Cliente();
+      expect((await c.pedir('GET', 'titulados')).headers.get('cache-control')).toBe('no-store');
+      await c.registrar('Usuario Sin Cache', nuevoCi());
+      for (const ruta of ['titulados', 'empleadores', 'items-empleadores', 'auth/yo']) {
+        expect((await c.pedir('GET', ruta)).headers.get('cache-control')).toBe('no-store');
+      }
+    });
+
     it.each(protegidas.filter(([, ruta]) => ruta.startsWith('admin/')))(
       '%s /api/%s con un usuario normal responde 403',
       async (metodo, ruta) => {

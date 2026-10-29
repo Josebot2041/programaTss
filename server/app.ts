@@ -49,6 +49,11 @@ export function crearApp() {
   if (enProduccion()) app.set('trust proxy', 1);
   // Una encuesta ocupa pocos KB; se rechazan cuerpos más grandes.
   app.use(express.json({ limit: '100kb' }));
+  // Los datos cambian con cada encuesta: ninguna respuesta GET se guarda en caché (navegador ni proxy).
+  app.use('/api', (req, res, next) => {
+    if (req.method === 'GET') res.set('Cache-Control', 'no-store');
+    next();
+  });
   app.use('/api', crearMiddlewareSesion());
   app.post('/api/auth/login', crearLimiteLogin());
 

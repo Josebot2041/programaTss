@@ -6,9 +6,14 @@ Sistemas** (enfoque de acreditación ARCU-SUR).
 
 La interfaz (React) lee los datos de una API propia (Express) conectada a PostgreSQL. Para usarla hay
 que iniciar sesión con una cuenta (CI y contraseña); los administradores tienen además una sección de
-**Administración** con el panel de control, la gestión de usuarios y las tablas completas. Si con la
-sesión iniciada la API deja de responder, la aplicación usa como respaldo el Excel incluido en
-`public/data/` y lo indica con un aviso.
+**Administración** con el panel de control, la gestión de usuarios y las tablas completas.
+
+Los datos se piden a la API solo con la sesión iniciada, y se vuelven a pedir al iniciar sesión, al
+guardar una encuesta y al volver a la pestaña. La barra superior indica siempre de dónde vienen:
+«Base de datos · N titulados» o, en naranja y con «Reintentar», «Respaldo Excel (sin conexión)».
+El Excel de `public/data/` se usa solo si la API no responde o falla (5xx); si la sesión venció
+(401) se vuelve al login. Las encuestas siempre se guardan en la base: sin conexión, el formulario
+avisa que no se guardaron.
 
 ## Requisitos
 

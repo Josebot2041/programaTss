@@ -26,8 +26,8 @@ import { EncabezadoPagina, Nota } from './ui/Estructura';
 import { CampoCasillas, CampoOpciones, CampoSelect, CampoTexto, GrupoFormulario } from './ui/Formulario';
 
 interface FormTituladosSurveyProps {
-  /** Guarda la encuesta (en la API o, sin conexión, en memoria) y devuelve el registro guardado. */
-  onGuardarTitulado: (borrador: BorradorTitulado, registroLocal: Titulado) => Promise<ResultadoGuardado<Titulado>>;
+  /** Guarda la encuesta en la base (API) y devuelve el registro guardado o los errores. */
+  onGuardarTitulado: (borrador: BorradorTitulado) => Promise<ResultadoGuardado<Titulado>>;
   onNavigateToAnalytics: () => void;
   idsExistentes: string[];
 }
@@ -65,7 +65,7 @@ export const FormTituladosSurvey: React.FC<FormTituladosSurveyProps> = ({ onGuar
     if (!r.registro) return;
 
     setEnviando(true);
-    const resultado = await onGuardarTitulado(b, r.registro);
+    const resultado = await onGuardarTitulado(b);
     setEnviando(false);
     if (resultado.ok) {
       setGuardado(resultado.registro.id);
