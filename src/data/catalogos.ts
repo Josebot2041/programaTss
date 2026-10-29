@@ -321,3 +321,14 @@ export function segmentoDe(anios: number | undefined): Segmento | undefined {
   if (anios === undefined) return undefined;
   return anios < UMBRAL_JUNIOR_ANIOS ? 'Junior (< 5 años)' : 'Consolidado (≥ 5 años)';
 }
+
+// ---------------------------------------------------------------------------
+// Usuarios de la web
+// ---------------------------------------------------------------------------
+
+export const ROLES = ['usuario', 'admin'] as const;
+export type Rol = (typeof ROLES)[number];
+
+/** Extensiones departamentales del CI boliviano (opcionales: "1234567 LP"). */
+export const EXTENSIONES_CI = ['LP', 'CB', 'SC', 'OR', 'PT', 'CH', 'TJ', 'BE', 'PD'] as const;
+export type ExtensionCi = (typeof EXTENSIONES_CI)[number];

@@ -165,6 +165,23 @@ erDiagram
         text nombre UK
     }
 
+    %% ---------------- Acceso a la web ----------------
+    usuarios {
+        int id PK
+        text nombre_completo "3 a 100 caracteres"
+        text ci UK "1234567 o 1234567 LP"
+        text password_hash "bcrypt"
+        text rol "usuario | admin"
+        boolean activo
+        timestamptz created_at
+        timestamptz ultimo_acceso
+    }
+    sesiones {
+        varchar sid PK
+        json sess "incluye usuarioId"
+        timestamp expire
+    }
+
     %% ---------------- Relaciones ----------------
     niveles_posgrado       |o--o{ titulados : "nivel_realizado_id"
     instituciones          |o--o{ titulados : "lugar_realizado_id"
@@ -207,6 +224,7 @@ erDiagram
 | Selección múltiple | `titulado_actividad`, `titulado_aspecto_util`, `titulado_aspecto_mejorar`, `titulado_asignatura_ventaja`, `titulado_asignatura_no_util`, `empleador_cargo` | Una fila por opción elegida. `orden` conserva el orden de la respuesta original. |
 | Catálogos | `areas_posgrado`, `instituciones`, `niveles_posgrado`, `fuentes_financiamiento`, `rubros`, `sectores`, `cargos_titulado`, `cargos_empleador`, `asignaturas`, `aspectos_carrera`, `actividades` | `(id, nombre único)`. Se cargan desde `src/data/catalogos.ts`. |
 | Escalas | `escala_likert_titulado`, `escala_likert_empleador` | En la escala de titulados el `id` es el propio valor (1 a 4); la de empleadores tiene además un código (`TA`, `PA`, `TD`, `NS`). |
+| Acceso | `usuarios`, `sesiones` | Cuentas de la web (rol `usuario` o `admin`, contraseña como hash bcrypt) y sesiones del servidor. No se relacionan con las encuestas. `sesiones` la maneja `connect-pg-simple`: el id del usuario va dentro de `sess`, por eso no hay clave foránea. |
 
 ## Vistas
 
@@ -240,6 +258,9 @@ respuestas de empleadores como columnas `item_01` … `item_18`.
   razón de no trabajar solo si no trabaja y datos del negocio solo si emprende.
 - Borrar un titulado o un empleador borra en cascada sus selecciones y respuestas. Una opción de
   catálogo que está en uso no se puede borrar.
+- `usuarios.ci` es único y tiene la forma `1234567` o `1234567 LP` (extensiones de
+  `src/data/catalogos.ts`); `nombre_completo` tiene de 3 a 100 caracteres sin espacios al inicio ni
+  al final, y `password_hash` debe ser un hash bcrypt.
 - Todas las claves foráneas tienen índice. La primera columna de cada PK compuesta ya queda
   indexada por la propia PK.
 

@@ -10,6 +10,7 @@ import {
   DEPARTAMENTOS,
   EDADES,
   ENTREGABLES_NEGOCIO,
+  EXTENSIONES_CI,
   GENEROS,
   IMPORTANCIAS_FORMACION,
   MEDIOS_CONVOCATORIA,
@@ -20,6 +21,7 @@ import {
   POSIBILIDADES_CONTRATACION,
   RAZONES_NO_TRABAJA,
   REMUNERACIONES,
+  ROLES,
   SATISFACCIONES_NEGOCIO,
   SI_NO,
   SITUACIONES_LABORALES,
@@ -53,7 +55,8 @@ const DOMINIOS: Record<string, readonly string[]> = {
   contrato_5_anios: SI_NO,
   posibilidad_contratacion: POSIBILIDADES_CONTRATACION,
   nivel_demandado: NIVELES_DEMANDADOS,
-  medio_convocatoria: MEDIOS_CONVOCATORIA
+  medio_convocatoria: MEDIOS_CONVOCATORIA,
+  rol: ROLES
 };
 
 /** Valores de cada CHECK (columna IN ('a', 'b', …)) del esquema, por columna. */
@@ -75,5 +78,10 @@ describe('db/schema.sql', () => {
   it('no hay CHECK IN sin catálogo asociado (salvo origen y la escala de empleadores)', () => {
     const sinCatalogo = [...dominios.keys()].filter((c) => !(c in DOMINIOS) && c !== 'origen' && c !== 'codigo');
     expect(sinCatalogo).toEqual([]);
+  });
+
+  it('las extensiones del CI coinciden con el catálogo', () => {
+    const extensiones = esquema.match(/ci ~ '\^\[0-9\]\{5,10\}\( \(([A-Z|]+)\)\)\?\$'/)?.[1];
+    expect(extensiones?.split('|')).toEqual([...EXTENSIONES_CI]);
   });
 });

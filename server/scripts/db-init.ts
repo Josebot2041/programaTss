@@ -1,5 +1,6 @@
 /**
- * npm run db:init — crea las tablas y vistas definidas en db/schema.sql (no borra datos).
+ * npm run db:init — crea las tablas y vistas definidas en db/schema.sql (no borra datos),
+ * incluidas las de usuarios y sesiones.
  *
  * Si encuentra las tablas del esquema anterior (sin normalizar: titulados con columnas de
  * arreglo, empleadores con item_01 … item_18), las mueve al esquema "legacy" antes de crear
@@ -34,7 +35,7 @@ try {
     await cliente.query(esquema);
     return anteriores;
   });
-  console.log('Esquema aplicado: catálogos, encuestas, tablas intermedias y vistas v_titulados / v_empleadores');
+  console.log('Esquema aplicado: catálogos, encuestas, tablas intermedias, usuarios, sesiones y vistas v_titulados / v_empleadores');
   if (movidas.length > 0) {
     console.log(`Se encontró el esquema anterior: ${movidas.join(', ')} se movieron al esquema "legacy".`);
     console.log('Ejecute npm run db:seed para cargar los datos (migra los registros de formularios y elimina "legacy").');
