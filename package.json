@@ -11,6 +11,8 @@
     "db:init": "tsx server/scripts/db-init.ts",
     "db:seed": "tsx server/scripts/db-seed.ts",
     "db:verificar": "tsx server/scripts/db-verificar.ts",
+    "cargar-encuestas": "tsx server/scripts/cargar-nuevas-encuestas.ts",
+    "borrar-base-oficial": "tsx server/scripts/borrar-base-oficial.ts",
     "crear-admin": "tsx server/scripts/crear-admin.ts",
     "build": "vite build",
     "preview": "vite preview",
@@ -39,6 +41,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.64.1",
+    "@types/bcryptjs": "^2.4.6",
     "@types/connect-pg-simple": "^7.0.3",
     "@types/express": "^5.0.6",
     "@types/express-session": "^1.19.0",
