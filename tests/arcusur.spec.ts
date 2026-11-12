@@ -6,6 +6,8 @@
  * de encuesta en el Sidebar).
  * P9 · Encuestas públicas: una encuesta enviada sin cuenta aumenta el contador del panel; un 401
  * lleva al login (nunca al Excel) y un 5xx al Excel de respaldo, indicado en el Header.
+ * P10 · Importación: un Excel crudo de Microsoft Forms importado en modo «agregar» queda en
+ * PostgreSQL (el contador lo refleja después de recargar la página).
  *
  * Los usuarios de prueba tienen CI que empiezan con 94 y una contraseña generada al azar en cada
  * ejecución. Al terminar se borran (con sus sesiones), igual que las encuestas enviadas.
@@ -14,12 +16,15 @@ import 'dotenv/config';
 import { randomBytes, randomInt } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import pg from 'pg';
+import * as XLSX from 'xlsx';
 import { expect, test, type Page } from '@playwright/test';
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const PASSWORD = `E2e${randomBytes(6).toString('hex')}9`;
 const cisCreados: string[] = [];
 const tituladosCreados: number[] = [];
+/** Ids de los titulados del Excel crudo de prueba (P10): no chocan con la base ni con la web. */
+const IDS_IMPORTADOS = [980001, 980002];
 
 function nuevoCi(): string {
   const ci = `94${String(randomInt(0, 10_000_000)).padStart(7, '0')}`;
@@ -64,13 +69,14 @@ const fuenteDatos = (page: Page) => page.getByTestId('fuente-datos');
 test.afterAll(async () => {
   const { rows } = await pool.query<{ id: number }>('SELECT id FROM usuarios WHERE ci LIKE ANY ($1)', [cisCreados.map((ci) => `${ci}%`)]);
   const ids = rows.map((r) => String(r.id));
+  // Encuestas enviadas e importadas, y las importaciones de los usuarios de prueba (antes que los
+  // usuarios: al borrarlos, sus importaciones quedarían sin autor)
+  await pool.query('DELETE FROM titulados WHERE id = ANY ($1::int[])', [[...tituladosCreados, ...IDS_IMPORTADOS]]);
+  await pool.query('DELETE FROM importaciones WHERE usuario_id = ANY ($1::int[])', [ids]);
+  // La próxima encuesta real recibe el número que le correspondía
+  await pool.query(`SELECT setval(pg_get_serial_sequence('titulados', 'id'), (SELECT max(id) FROM titulados))`);
   await pool.query(`DELETE FROM sesiones WHERE sess->>'usuarioId' = ANY ($1)`, [ids]);
   await pool.query('DELETE FROM usuarios WHERE id = ANY ($1::int[])', [ids]);
-  if (tituladosCreados.length > 0) {
-    await pool.query('DELETE FROM titulados WHERE id = ANY ($1::int[])', [tituladosCreados]);
-    // La próxima encuesta real recibe el número que le correspondía
-    await pool.query(`SELECT setval(pg_get_serial_sequence('titulados', 'id'), (SELECT max(id) FROM titulados))`);
-  }
   await pool.end();
 });
 
@@ -241,5 +247,70 @@ test.describe('P9 · Encuestas públicas', () => {
     await fuenteDatos(page).getByRole('button', { name: 'Reintentar' }).click();
     await expect(fuenteDatos(page)).toContainText(`Base de datos · ${total} titulados`);
     await expect(page.getByText(/se muestran los datos de respaldo/)).toHaveCount(0);
+  });
+});
+
+/** Excel crudo de Microsoft Forms (titulados) con dos respuestas, como lo exporta el formulario oficial. */
+function excelCrudoTitulados(): Buffer {
+  const fila = (valores: Record<number, string | number>) => Array.from({ length: 167 }, (_, i) => valores[i] ?? '');
+  const filas = [
+    fila({
+      0: 'Id',
+      8: 'Edad que tiene actualmente:',
+      11: 'Género:',
+      43: '¿CUÁNTOS SON LOS AÑOS DE VIDA PROFESIONAL QUE LLEVA HASTA LA FECHA?',
+      49: '¿CUÁL DE LAS SIGUIENTES AFIRMACIONES DESCRIBE SU SITUACIÓN LABORAL ACTUAL?',
+      155: '¿Le interesaría formar parte una red de contactos oficial de la Carrera de Ingeniería en Sistemas?'
+    }),
+    ...IDS_IMPORTADOS.map((id, i) =>
+      fila({ 0: id, 8: '27 - 30 años', 11: i === 0 ? 'Mujer' : 'Hombre', 14: 'NO', 29: 'SI', 32: 'IA', 35: 'DIRECCIÓN DE POSGRADO FCyT', 40: 'De acuerdo', 43: '4 años', 46: '3 meses', 49: 'Actualmente NO trabajo', 129: 'De acuerdo', 134: 'De acuerdo', 155: 'SI' })
+    )
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(filas), 'Sheet1');
+  return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
+}
+
+test.describe('P10 · Importación a la base de datos', () => {
+  let admin: { nombre: string; ci: string };
+
+  test.beforeAll(async () => {
+    admin = await crearUsuario('Importadora De Prueba', 'admin');
+  });
+
+  test('P10.1 El Excel crudo de titulados importado en modo «agregar» queda guardado al recargar', async ({ page }) => {
+    const antes = await contarTitulados();
+    await page.goto('/#panel/encuestas');
+    await ingresar(page, admin.ci);
+    await expect(page.getByRole('heading', { name: 'Base de datos', exact: true })).toBeVisible();
+    await expect(fuenteDatos(page)).toContainText(`Base de datos · ${antes} titulados`);
+    // Las encuestas ya no se cargan desde aquí
+    await expect(page.getByRole('button', { name: /\+ Encuesta/ })).toHaveCount(0);
+
+    await page.getByLabel('Archivo a importar').setInputFiles({
+      name: 'ENCUESTA_DE_OPINION_A_TITULADOS_DE_INGENIERIA_EN_SISTEMAS.xlsx',
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      buffer: excelCrudoTitulados()
+    });
+    await expect(page.getByRole('heading', { name: '2. Revisar la previsualización' })).toBeVisible();
+    await expect(page.getByText('Excel crudo de Microsoft Forms (titulados)')).toBeVisible();
+    // Previsualizar no guarda nada
+    expect(await contarTitulados()).toBe(antes);
+    const resumen = page.getByRole('table', { name: 'Resumen de la previsualización' });
+    // En el archivo, nuevos, cambian, sin cambios y protegidos
+    await expect(resumen.getByRole('row', { name: /Titulados/ }).getByRole('cell')).toHaveText(['Titulados', '2', '2', '0', '0', '0']);
+
+    await expect(page.getByRole('radio', { name: /^Agregar/ })).toBeChecked();
+    await page.getByRole('button', { name: 'Guardar en la base de datos' }).click();
+    await expect(page.getByText('Se guardaron 2 nuevos y se actualizaron 0 en la base de datos.')).toBeVisible();
+    await expect(fuenteDatos(page)).toContainText(`Base de datos · ${antes + 2} titulados`);
+    expect(await contarTitulados()).toBe(antes + 2);
+    const { rows } = await pool.query('SELECT id, origen FROM titulados WHERE id = ANY ($1::int[]) ORDER BY id', [IDS_IMPORTADOS]);
+    expect(rows).toEqual(IDS_IMPORTADOS.map((id) => ({ id, origen: 'importacion' })));
+    await expect(page.getByRole('table', { name: 'Historial de importaciones' })).toContainText('Importadora De Prueba');
+
+    // Recargar la página: los datos vienen de PostgreSQL, no de la memoria del navegador
+    await page.reload();
+    await expect(fuenteDatos(page)).toContainText(`Base de datos · ${antes + 2} titulados`);
   });
 });

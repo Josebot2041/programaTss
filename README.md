@@ -147,8 +147,9 @@ npm run test:e2e   # pruebas de extremo a extremo (Playwright)
 
 ## Pruebas
 
-- `npm run test` corre las pruebas de Vitest. Las de la API (`server/auth.test.ts`) usan la base de
-  `.env`: crean usuarios de prueba (CI que empiezan con 95) y los borran al terminar. Si no hay
+- `npm run test` corre las pruebas de Vitest. Las de la API (`server/auth.test.ts` y
+  `server/importacion.test.ts`) usan la base de `.env`: crean usuarios de prueba (CI que empiezan
+  con 95 y 96) y registros importados con Ids desde 990000, y los borran al terminar. Si no hay
   base, se omiten con un aviso.
 - `npm run test:e2e` corre `tests/arcusur.spec.ts` con Playwright. Levanta su propia API en el
   puerto 4100 (con un límite alto de envíos de encuestas) y el frontend en el 3100 apuntando a ella

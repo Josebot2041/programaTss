@@ -298,7 +298,7 @@ export const TabSurveysCollection: React.FC<TabSurveysCollectionProps> = ({
                     <tbody className="divide-y divide-slate-100 tabular-nums">
                       {(['titulados', 'empleadores'] as const).map((tabla) => (
                         <tr key={tabla}>
-                          <td className="py-2 pr-4 capitalize">{tabla}</td>
+                          <td className="py-2 pr-4">{tabla === 'titulados' ? 'Titulados' : 'Empleadores'}</td>
                           <td className="py-2 px-3 text-right">{previa.cantidades[tabla]}</td>
                           <td className="py-2 px-3 text-right">{previa.estados[tabla].nuevo}</td>
                           <td className="py-2 px-3 text-right">{previa.estados[tabla].cambia}</td>
