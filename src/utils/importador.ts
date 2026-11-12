@@ -501,17 +501,58 @@ export async function importarArchivo(datos: ArrayBuffer, nombreArchivo: string)
   return importarLibro(xlsx, leerLibro(xlsx, datos, nombreArchivo));
 }
 
-/** Nombre de la base real incluida en la aplicación (carpeta public/data). */
-export const NOMBRE_BASE_REAL = 'Base_Limpia_Titulados_Empleadores.xlsx';
+/** Nombre (sin extensión) de la base real incluida en la aplicación (carpeta public/data). */
+export const NOMBRE_BASE_REAL = 'Base_Limpia_Titulados_Empleadores';
+
+/**
+ * Archivos de la base real, en orden de prioridad: el CSV (datos más recientes, puede traer solo
+ * una hoja) y el .xlsx (libro completo con Titulados, Empleadores e Items_empleadores).
+ */
+export const ARCHIVOS_BASE_REAL = [`${NOMBRE_BASE_REAL}.csv`, `${NOMBRE_BASE_REAL}.xlsx`] as const;
+
+type ParteBase = 'titulados' | 'empleadores' | 'items';
+const PARTE_DE_HOJA: Record<string, ParteBase> = { Titulados: 'titulados', Empleadores: 'empleadores', Items_empleadores: 'items' };
+
+export interface BaseReal extends ResultadoImportacion {
+  /** Archivo del que salió cada parte. */
+  fuentes: Partial<Record<ParteBase, string>>;
+}
+
+/**
+ * Importa la base real: cada parte (titulados, empleadores, afirmaciones) sale del primer archivo
+ * de ARCHIVOS_BASE_REAL que exista y la traiga. Así un CSV con solo titulados se completa con los
+ * empleadores y las afirmaciones del .xlsx. `leer` devuelve undefined si el archivo no existe.
+ */
+export async function importarBaseReal(leer: (nombre: string) => Promise<ArrayBuffer | undefined>): Promise<BaseReal> {
+  const base: BaseReal = { problemas: [], fuentes: {} };
+  let encontrados = 0;
+  for (const nombre of ARCHIVOS_BASE_REAL) {
+    const datos = await leer(nombre);
+    if (!datos) continue;
+    encontrados++;
+    const r = await importarArchivo(datos, nombre);
+    for (const parte of ['titulados', 'empleadores', 'items'] as const) {
+      if (base[parte] !== undefined || !r[parte]?.length) continue;
+      (base as ResultadoImportacion)[parte] = r[parte] as never;
+      base.fuentes[parte] = nombre;
+    }
+    // Solo interesan los problemas de las partes que se tomaron de este archivo
+    base.problemas.push(...r.problemas.filter((p) => base.fuentes[PARTE_DE_HOJA[p.hoja]] === nombre));
+  }
+  if (encontrados === 0) throw new Error(`No se encontró ${ARCHIVOS_BASE_REAL.join(' ni ')} en public/data`);
+  return base;
+}
 
 /**
  * Descarga e importa la base real incluida en la aplicación. La ruta se arma aquí y no al
- * cargar el módulo, porque import.meta.env solo existe en Vite (el seed lo usa desde Node).
+ * cargar el módulo, porque import.meta.env solo existe en Vite (el seed la lee desde Node).
  */
-export async function cargarBaseReal(): Promise<ResultadoImportacion> {
-  const respuesta = await fetch(`${import.meta.env.BASE_URL}data/${NOMBRE_BASE_REAL}`);
-  if (!respuesta.ok) {
-    throw new Error(`No se pudo descargar ${NOMBRE_BASE_REAL} (HTTP ${respuesta.status})`);
-  }
-  return importarArchivo(await respuesta.arrayBuffer(), NOMBRE_BASE_REAL);
+export function cargarBaseReal(): Promise<BaseReal> {
+  return importarBaseReal(async (nombre) => {
+    const respuesta = await fetch(`${import.meta.env.BASE_URL}data/${nombre}`);
+    // Un servidor con fallback SPA responde index.html (200) en lugar de 404: tampoco es el archivo
+    if (respuesta.status === 404 || respuesta.headers.get('content-type')?.includes('text/html')) return undefined;
+    if (!respuesta.ok) throw new Error(`No se pudo descargar ${nombre} (HTTP ${respuesta.status})`);
+    return respuesta.arrayBuffer();
+  });
 }

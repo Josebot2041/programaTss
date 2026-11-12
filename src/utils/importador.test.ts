@@ -108,3 +108,38 @@ describe('Importación de CSV', () => {
     );
   });
 });
+
+describe('Base real de public/data: el CSV y, lo que no traiga, del .xlsx', async () => {
+  const { leerBaseRealLocal } = await import('./baseRealLocal');
+  const { importarBaseReal } = await import('./importador');
+  const base = await leerBaseRealLocal();
+
+  it('toma los titulados del CSV y los empleadores y las afirmaciones del .xlsx', () => {
+    expect(base.fuentes).toEqual({
+      titulados: 'Base_Limpia_Titulados_Empleadores.csv',
+      empleadores: 'Base_Limpia_Titulados_Empleadores.xlsx',
+      items: 'Base_Limpia_Titulados_Empleadores.xlsx'
+    });
+    expect(base.problemas).toEqual([]);
+    expect(base.titulados).toHaveLength(152);
+    expect(base.empleadores).toEqual(r.empleadores);
+    expect(base.items).toEqual(r.items);
+  });
+
+  it('el CSV conserva los 148 titulados del .xlsx y agrega 4 nuevos', () => {
+    const delCsv = new Map((base.titulados ?? []).map((t) => [t.id, t]));
+    for (const t of r.titulados ?? []) expect(delCsv.get(t.id)).toEqual(t);
+    expect([...delCsv.keys()].filter((id) => Number(id) > 148)).toEqual(['149', '150', '151', '156']);
+  });
+
+  it('sin CSV usa el .xlsx completo, y sin ningún archivo avisa', async () => {
+    const soloXlsx = await importarBaseReal(async (nombre) => (nombre.endsWith('.xlsx') ? aArrayBuffer(readFileSync(RUTA_EXCEL)) : undefined));
+    expect(soloXlsx.fuentes).toEqual({
+      titulados: 'Base_Limpia_Titulados_Empleadores.xlsx',
+      empleadores: 'Base_Limpia_Titulados_Empleadores.xlsx',
+      items: 'Base_Limpia_Titulados_Empleadores.xlsx'
+    });
+    expect(soloXlsx.titulados).toEqual(r.titulados);
+    await expect(importarBaseReal(async () => undefined)).rejects.toThrow(/No se encontró/);
+  });
+});

@@ -1,8 +1,6 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { redondear } from './estadistica';
-import { importarArchivo } from './importador';
+import { leerBaseRealLocal } from './baseRealLocal';
 import {
   GeneradorCongruencial,
   parametrosDesdeBase,
@@ -13,8 +11,7 @@ import {
   validarGenerador
 } from './simulacion';
 
-const buffer = readFileSync(resolve(import.meta.dirname, '../../public/data/Base_Limpia_Titulados_Empleadores.xlsx'));
-const base = await importarArchivo(buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer, 'base.xlsx');
+const base = await leerBaseRealLocal();
 const parametros = parametrosDesdeBase(base.titulados ?? []);
 
 describe('Generador congruencial mixto (a = 8121, c = 28411, m = 100 000)', () => {
@@ -36,12 +33,12 @@ describe('Generador congruencial mixto (a = 8121, c = 28411, m = 100 000)', () =
 });
 
 describe('Parámetros tomados de la base', () => {
-  it('P(interés) = 122/147, P(FCyT) = 38/123, beca actual = 8/98 y tiempos sobre 101', () => {
-    expect([parametros.interes.n, parametros.interes.total, redondear(parametros.interes.valor, 3)]).toEqual([122, 147, 0.83]);
-    expect([parametros.fcyt.n, parametros.fcyt.total, redondear(parametros.fcyt.valor, 3)]).toEqual([38, 123, 0.309]);
-    expect([parametros.becaActual.n, parametros.becaActual.total, redondear(parametros.becaActual.valor, 3)]).toEqual([8, 98, 0.082]);
-    expect(parametros.areas.map((a) => redondear(a.probabilidad, 3))).toEqual([0.439, 0.236, 0.203, 0.081, 0.041]);
-    expect(parametros.totalTiempos).toBe(101);
+  it('P(interés) = 125/151, P(FCyT) = 40/126, beca actual = 9/101 y tiempos sobre 104', () => {
+    expect([parametros.interes.n, parametros.interes.total, redondear(parametros.interes.valor, 3)]).toEqual([125, 151, 0.828]);
+    expect([parametros.fcyt.n, parametros.fcyt.total, redondear(parametros.fcyt.valor, 3)]).toEqual([40, 126, 0.317]);
+    expect([parametros.becaActual.n, parametros.becaActual.total, redondear(parametros.becaActual.valor, 3)]).toEqual([9, 101, 0.089]);
+    expect(parametros.areas.map((a) => redondear(a.probabilidad, 3))).toEqual([0.437, 0.246, 0.198, 0.079, 0.04]);
+    expect(parametros.totalTiempos).toBe(104);
   });
 });
 
@@ -87,9 +84,9 @@ describe('Escenario B: convenios de becas', () => {
     semilla: 78901
   });
 
-  it('P(inscribirse sin beca) = P(FCyT) · conversión ≈ 0.108', () => {
-    expect(redondear(b.probabilidadSinBeca, 3)).toBe(0.108);
-    expect(redondear(b.probabilidadConBeca, 3)).toBe(0.216);
+  it('P(inscribirse sin beca) = P(FCyT) · conversión ≈ 0.111', () => {
+    expect(redondear(b.probabilidadSinBeca, 3)).toBe(0.111);
+    expect(redondear(b.probabilidadConBeca, 3)).toBe(0.222);
   });
 
   it('consume dos números por titulado (situación actual y con convenios)', () => {

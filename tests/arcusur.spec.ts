@@ -233,7 +233,7 @@ test.describe('P9 · Persistencia de las encuestas', () => {
 
     const pedidosExcel: string[] = [];
     page.on('request', (r) => {
-      if (r.url().endsWith('.xlsx')) pedidosExcel.push(r.url());
+      if (/\.(xlsx|csv)$/.test(r.url())) pedidosExcel.push(r.url());
     });
     await page.route('**/api/titulados', (ruta) => ruta.fulfill({ status: 401, json: { error: 'Inicie sesión para continuar' } }));
     await page.reload();
@@ -251,7 +251,8 @@ test.describe('P9 · Persistencia de las encuestas', () => {
     await page.route('**/api/titulados', (ruta) => ruta.fulfill({ status: 502, json: { error: 'Bad Gateway' } }));
     await page.reload();
     await expect(fuenteDatos(page)).toContainText('Respaldo Excel (sin conexión)');
-    await expect(page.getByText(/se muestran los datos de respaldo/)).toBeVisible();
+    // Titulados del CSV; empleadores y afirmaciones del .xlsx, que el CSV no trae
+    await expect(page.getByText('se muestran los datos de respaldo de Base_Limpia_Titulados_Empleadores.csv y Base_Limpia_Titulados_Empleadores.xlsx')).toBeVisible();
 
     await page.unroute('**/api/titulados');
     await fuenteDatos(page).getByRole('button', { name: 'Reintentar' }).click();

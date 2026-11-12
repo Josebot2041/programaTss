@@ -1,6 +1,8 @@
 /**
- * npm run db:seed — carga public/data/Base_Limpia_Titulados_Empleadores.xlsx en PostgreSQL
- * usando el mismo importador que la aplicación. Todo ocurre en una sola transacción:
+ * npm run db:seed — carga la base oficial de public/data en PostgreSQL usando el mismo importador
+ * que la aplicación. Cada parte sale del primer archivo que la traiga: Base_Limpia_Titulados_
+ * Empleadores.csv y, lo que el CSV no tenga (p. ej. empleadores y afirmaciones), del .xlsx.
+ * Todo ocurre en una sola transacción:
  *
  *   1. Catálogos (desde src/data/catalogos.ts) y escalas Likert.
  *   2. Afirmaciones de empleadores (hoja Items_empleadores).
@@ -13,12 +15,9 @@
  * registros cargados desde los formularios.
  */
 
-import { existsSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
 import type pg from 'pg';
 import { LIKERT_EMPLEADOR, LIKERT_TITULADOS } from '../../src/data/catalogos';
-import { importarArchivo, NOMBRE_BASE_REAL } from '../../src/utils/importador';
+import { leerBaseRealLocal } from '../../src/utils/baseRealLocal';
 import {
   CATALOGOS,
   CODIGOS_LIKERT_EMPLEADOR,
@@ -33,22 +32,16 @@ import {
   type Tabla
 } from '../repositorio';
 
-const RUTA_EXCEL = fileURLToPath(new URL(`../../public/data/${NOMBRE_BASE_REAL}`, import.meta.url));
-
-if (!existsSync(RUTA_EXCEL)) {
-  console.error(`No se encontró el archivo ${RUTA_EXCEL}`);
+const resultado = await leerBaseRealLocal().catch((err: Error) => {
+  console.error(err.message);
   console.error('Copie la base oficial en public/data/ y vuelva a ejecutar npm run db:seed.');
   process.exit(1);
-}
+});
 
-// Se importa después de comprobar el archivo para no exigir DATABASE_URL si falta el Excel.
+// Se importa después de leer el archivo para no exigir DATABASE_URL si falta la base.
 const { enTransaccion, pool } = await import('../db');
 
-const archivo = await readFile(RUTA_EXCEL);
-const resultado = await importarArchivo(
-  archivo.buffer.slice(archivo.byteOffset, archivo.byteOffset + archivo.byteLength) as ArrayBuffer,
-  NOMBRE_BASE_REAL
-);
+for (const [parte, archivo] of Object.entries(resultado.fuentes)) console.log(`Origen de ${parte}: ${archivo}`);
 
 for (const p of resultado.problemas) {
   const ubicacion = `${p.hoja}, fila ${p.fila}${p.columna ? `, columna ${p.columna}` : ''}`;
@@ -60,7 +53,7 @@ const empleadores = resultado.empleadores ?? [];
 const items = resultado.items ?? [];
 
 if (titulados.length === 0 || empleadores.length === 0) {
-  console.error('El archivo no tiene titulados o empleadores válidos; no se cargó nada.');
+  console.error('Los archivos de public/data no tienen titulados o empleadores válidos; no se cargó nada.');
   await pool.end();
   process.exit(1);
 }

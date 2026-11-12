@@ -87,6 +87,8 @@ export default function App() {
   const [estadoCarga, setEstadoCarga] = useState<'cargando' | 'listo' | 'error'>('cargando');
   const [errorCarga, setErrorCarga] = useState<string>('');
   const [problemasBase, setProblemasBase] = useState<ProblemaImportacion[]>([]);
+  // Archivos de public/data de los que salió el respaldo (el CSV y, si le falta algo, el .xlsx)
+  const [archivosRespaldo, setArchivosRespaldo] = useState<string[]>([]);
   // #informe abre directamente el informe imprimible
   const [reportModalOpen, setReportModalOpen] = useState<boolean>(() => window.location.hash === '#informe');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
@@ -184,6 +186,7 @@ export default function App() {
       setEmpleadores(resultado.empleadores ?? []);
       setItemsEmpleadores(resultado.items ?? []);
       setProblemasBase(resultado.problemas);
+      setArchivosRespaldo([...new Set(Object.values(resultado.fuentes))]);
       setFuente('excel');
       setAlDia(true);
       setEstadoCarga('listo');
@@ -323,8 +326,8 @@ export default function App() {
             <p className="mb-4 flex items-start gap-1.5 border-l-4 border-resalte bg-resalte-fondo px-3 py-2 text-xs text-slate-700 print:hidden">
               <CloudOff className="w-3.5 h-3.5 mt-px shrink-0 text-resalte" aria-hidden="true" />
               <span>
-                Sin conexión con el servidor: se muestran los datos de respaldo de {NOMBRE_BASE_REAL}, no los de la base de datos. Las
-                encuestas nuevas se podrán guardar cuando vuelva la conexión.
+                Sin conexión con el servidor: se muestran los datos de respaldo de {archivosRespaldo.join(' y ')}, no los de la base de
+                datos. Las encuestas nuevas se podrán guardar cuando vuelva la conexión.
               </span>
             </p>
           )}

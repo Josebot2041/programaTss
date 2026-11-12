@@ -1,12 +1,11 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import * as XLSX from 'xlsx';
 import { describe, expect, it } from 'vitest';
 import { aCSV, aXlsx, filasEmpleadores, filasResultados, filasTitulados } from './exportador';
+import { leerBaseRealLocal } from './baseRealLocal';
 import { importarArchivo } from './importador';
 
 const leer = (b: Buffer) => b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer;
-const base = await importarArchivo(leer(readFileSync(resolve(import.meta.dirname, '../../public/data/Base_Limpia_Titulados_Empleadores.xlsx'))), 'base.xlsx');
+const base = await leerBaseRealLocal();
 const titulados = base.titulados ?? [];
 const empleadores = base.empleadores ?? [];
 
@@ -35,9 +34,9 @@ describe('Exportación', () => {
   it('la hoja Resultados contiene los valores de control', () => {
     const filas = filasResultados(titulados, empleadores);
     const valor = (indicador: string) => filas.find((f) => f[1] === indicador)?.[2];
-    expect(valor('Años de vida profesional: media')).toBe(8.831);
-    expect(valor('Dos áreas principales (%)')).toBe(67.5);
-    expect(valor('Nivel del programa × fuente de financiamiento: p oficial')).toBe(0.1089);
+    expect(valor('Años de vida profesional: media')).toBe(8.6342);
+    expect(valor('Dos áreas principales (%)')).toBe(68.3);
+    expect(valor('Nivel del programa × fuente de financiamiento: p oficial')).toBe(0.1374);
     expect(valor('Índice: Participación del empleador en la mejora de la Carrera')).toBe(34.5);
   });
 });

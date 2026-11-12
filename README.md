@@ -65,8 +65,11 @@ avisa que no se guardaron.
    Si la base tiene el esquema anterior (sin normalizar), sus tablas se mueven al esquema
    `legacy` y el paso siguiente migra las encuestas de formularios.
 
-5. **Cargar los catálogos y la base oficial** desde `public/data/Base_Limpia_Titulados_Empleadores.xlsx`
-   (148 titulados, 51 empleadores y 18 afirmaciones):
+5. **Cargar los catálogos y la base oficial** desde `public/data/` (152 titulados, 51 empleadores y
+   18 afirmaciones). Cada parte sale del primer archivo que la traiga:
+   `Base_Limpia_Titulados_Empleadores.csv` (hoy solo titulados, separados por «;») y, lo que el CSV
+   no tenga, `Base_Limpia_Titulados_Empleadores.xlsx` (hoy empleadores y afirmaciones). El respaldo
+   del frontend y las pruebas usan la misma regla:
 
    ```bash
    npm run db:seed
@@ -75,11 +78,11 @@ avisa que no se guardaron.
    Primero carga los catálogos desde `src/data/catalogos.ts`, luego las afirmaciones y los
    registros oficiales, todo en una transacción. Se puede ejecutar las veces que haga falta: los
    registros se identifican por su id de la base oficial, así que no se duplican, y las encuestas
-   cargadas desde los formularios no se tocan. Si el archivo Excel no existe, el script avisa y se
-   detiene sin modificar nada.
+   cargadas desde los formularios no se tocan. Nunca borra registros que falten en los archivos.
+   Si no existe ninguno de los dos archivos, el script avisa y se detiene sin modificar nada.
 
-   Para comprobar la carga (148 titulados, 51 empleadores, datos idénticos al Excel y los mismos
-   valores de control del informe):
+   Para comprobar la carga (tantos titulados y empleadores como los archivos, datos idénticos y los
+   mismos valores de control calculados desde la base o desde los archivos):
 
    ```bash
    npm run db:verificar

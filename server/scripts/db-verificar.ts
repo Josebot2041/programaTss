@@ -1,27 +1,23 @@
 /**
- * npm run db:verificar — comprueba que la base normalizada reproduce la base oficial:
+ * npm run db:verificar — comprueba que la base normalizada reproduce la base oficial de
+ * public/data (los titulados del CSV y, lo que el CSV no traiga, del .xlsx; ver db:seed):
  *
- *   1. v_titulados y v_empleadores tienen 148 y 51 registros oficiales.
- *   2. Esos registros son idénticos a los que el importador lee del Excel.
+ *   1. v_titulados y v_empleadores tienen tantos registros oficiales como los archivos.
+ *   2. Esos registros son idénticos a los que el importador lee de los archivos.
  *   3. Los valores de control (hoja Resultados del exportador: HU1 a HU4, pruebas de
  *      independencia e índices de empleadores) son los mismos calculados desde la base
- *      o desde el Excel.
+ *      o desde los archivos.
  */
 
-import { readFile } from 'node:fs/promises';
 import { isDeepStrictEqual } from 'node:util';
+import { leerBaseRealLocal } from '../../src/utils/baseRealLocal';
 import { filasResultados } from '../../src/utils/exportador';
-import { importarArchivo, NOMBRE_BASE_REAL } from '../../src/utils/importador';
 import { pool } from '../db';
 import { empleadorDeFila, tituladoDeFila } from '../repositorio';
 
-const ESPERADO = { titulados: 148, empleadores: 51 };
-
-const archivo = await readFile(new URL(`../../public/data/${NOMBRE_BASE_REAL}`, import.meta.url));
-const excel = await importarArchivo(
-  archivo.buffer.slice(archivo.byteOffset, archivo.byteOffset + archivo.byteLength) as ArrayBuffer,
-  NOMBRE_BASE_REAL
-);
+const excel = await leerBaseRealLocal();
+const ESPERADO = { titulados: excel.titulados?.length ?? 0, empleadores: excel.empleadores?.length ?? 0 };
+for (const [parte, archivo] of Object.entries(excel.fuentes)) console.log(`      ${parte}: ${archivo}`);
 
 let fallas = 0;
 const comprobar = (descripcion: string, ok: boolean, detalle = '') => {
@@ -39,14 +35,14 @@ try {
 
   // Se compara la forma JSON, que es la que entrega la API.
   const json = (x: unknown) => JSON.parse(JSON.stringify(x));
-  comprobar('titulados idénticos al Excel', isDeepStrictEqual(json(titulados), json(excel.titulados)));
-  comprobar('empleadores idénticos al Excel', isDeepStrictEqual(json(empleadores), json(excel.empleadores)));
+  comprobar('titulados idénticos a los archivos', isDeepStrictEqual(json(titulados), json(excel.titulados)));
+  comprobar('empleadores idénticos a los archivos', isDeepStrictEqual(json(empleadores), json(excel.empleadores)));
 
   const control = filasResultados(titulados, empleadores);
   const controlExcel = filasResultados(excel.titulados ?? [], excel.empleadores ?? []);
   const distintos = control.filter((fila, i) => !isDeepStrictEqual(fila, controlExcel[i]));
   comprobar(
-    'valores de control (hoja Resultados) iguales a los del Excel',
+    'valores de control (hoja Resultados) iguales a los de los archivos',
     control.length === controlExcel.length && distintos.length === 0,
     `${control.length - 1} indicadores${distintos.length ? `, distintos: ${distintos.map((f) => f[1]).join('; ')}` : ''}`
   );
