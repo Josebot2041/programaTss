@@ -251,7 +251,7 @@ describe.skipIf(!hayBase)('API de autenticación', () => {
       await c.registrar('Usuario Lector', nuevoCi());
       const r = await c.pedir('GET', 'titulados');
       expect(r.status).toBe(200);
-      expect(r.body.length).toBeGreaterThanOrEqual(152);
+      expect(r.body.length).toBeGreaterThanOrEqual(184);
     });
 
     it('las respuestas GET no se guardan en caché (con y sin sesión)', async () => {
@@ -342,8 +342,8 @@ describe.skipIf(!hayBase)('API de autenticación', () => {
       const { usuarios, titulados, empleadores, ultimos_7_dias } = r.body;
       expect(usuarios.admins).toBeGreaterThanOrEqual(1);
       expect(usuarios.total).toBeGreaterThanOrEqual(usuarios.activos);
-      expect(titulados.base_oficial).toBe(152);
-      expect(empleadores.base_oficial).toBe(51);
+      expect(titulados.base_oficial).toBe(184);
+      expect(empleadores.base_oficial).toBe(78);
       expect(titulados.total).toBe(titulados.base_oficial + titulados.formulario);
       expect(ultimos_7_dias.por_dia).toHaveLength(7);
       expect(ultimos_7_dias.usuarios).toBeGreaterThanOrEqual(1); // los creados por estas pruebas

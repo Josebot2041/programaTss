@@ -98,26 +98,26 @@ describe('Perfil de los titulados: textos generados con los datos', () => {
   it.each([
     '5 años',
     'Q1 2 · Q3 14',
-    'La media supera a la mediana porque 13 titulados (8.7%) tienen más de 20 años de trayectoria.',
-    'Los junior promedian 1.90 años y los consolidados 13.99 años.',
-    'El grupo más numeroso es el de 35 años o más (42.8%).',
-    'El 77.6% son hombres y el 22.4% mujeres.',
-    'El 49.3% acumula menos de un año sin empleo.',
-    'Mediana del tiempo cesante sobre 146 titulados, incluidos los ceros 1 años',
-    'Desempleo sobre la trayectoria años sin empleo / años de vida profesional 9.3%',
-    'Nunca estuvo desempleado 60 de 146 41.1%',
-    'Interés en un posgrado 82.8% 125 de 151',
-    'Las dos áreas principales (IA e Ingeniería de Software) suman 68.3% de las preferencias, cerca del umbral de alerta de 70%.',
-    'Base de Datos (7.9%) y Robótica (4.0%) tienen baja demanda como programas independientes.',
-    'Universidades internacionales es la segunda opción (24.6%); la UMSS (Posgrado FCyT y EUPG) reúne el 42.1%.',
-    'Diplomado y maestría suman 95.0% de los programas cursados.',
-    'El 91.1% lo pagó con recursos propios.'
+    'La media supera a la mediana porque 16 titulados (8.8%) tienen más de 20 años de trayectoria.',
+    'Los junior promedian 2.01 años y los consolidados 13.57 años.',
+    'El grupo más numeroso es el de 35 años o más (44.6%).',
+    'El 79.9% son hombres y el 20.1% mujeres.',
+    'El 47.8% acumula menos de un año sin empleo.',
+    'Mediana del tiempo cesante sobre 180 titulados, incluidos los ceros 1 años',
+    'Desempleo sobre la trayectoria años sin empleo / años de vida profesional 9.7%',
+    'Nunca estuvo desempleado 69 de 180 38.3%',
+    'Interés en un posgrado 84.2% 155 de 184',
+    'Las dos áreas principales (IA e Ingeniería de Software) suman 69.0% de las preferencias, cerca del umbral de alerta de 70%.',
+    'Base de Datos (7.1%) y Robótica (3.2%) tienen baja demanda como programas independientes.',
+    'Universidades internacionales es la segunda opción (23.2%); la UMSS (Posgrado FCyT y EUPG) reúne el 41.3%.',
+    'Diplomado y maestría suman 94.1% de los programas cursados.',
+    'El 93.3% lo pagó con recursos propios.'
   ])('muestra: %s', (frase) => {
     expect(texto).toContain(frase);
   });
 
   it('no repite en la línea del gráfico el porcentaje de la nota de umbral', () => {
-    expect(texto.split('68.3%')).toHaveLength(2);
+    expect(texto.split('69.0%')).toHaveLength(2);
   });
 
   it('no deja cifras del informe escritas a mano', () => {
@@ -130,14 +130,14 @@ describe('Pruebas de independencia: textos generados con los datos', () => {
   const texto = textoVisible(<TabChiSquareAnalysis titulados={titulados} />);
 
   it.each([
-    '1 de 4 relaciones es significativa: sector × remuneración mensual.',
-    '1.532 (0.2159)',
-    '8.934 (0.1773)',
-    '4.385 (0.0363)',
-    'Pagaron con recursos propios 65 de 69 en Diplomado (94.2%) y 27 de 32 en Especialidad, Maestría o Doctorado (84.4%).',
-    'Prueba exacta de Fisher Resultado oficial p = 0.1374',
-    '1 de 4 celdas tiene frecuencia esperada menor que 5 (mínima 2.85): por eso el resultado oficial es la prueba exacta de Fisher.',
-    'No se rechaza H₀ (p = 0.1374 ≥ 0.05): no hay evidencia de asociación entre nivel del programa y financiamiento.',
+    '2 de 4 relaciones son significativas: edad × formación complementaria realizada y sector × remuneración mensual.',
+    '2.146 (0.1430)',
+    '9.458 (0.1494)',
+    '10.477 (0.0012)',
+    'Pagaron con recursos propios 77 de 80 en Diplomado (96.3%) y 34 de 39 en Especialidad, Maestría o Doctorado (87.2%).',
+    'Prueba exacta de Fisher Resultado oficial p = 0.1121',
+    '1 de 4 celdas tiene frecuencia esperada menor que 5 (mínima 2.62): por eso el resultado oficial es la prueba exacta de Fisher.',
+    'No se rechaza H₀ (p = 0.1121 ≥ 0.05): no hay evidencia de asociación entre nivel del programa y financiamiento.',
     'La UMSS es la institución preferida en 4 de 5 áreas; la excepción es Redes de Datos y Seguridad.'
   ])('muestra: %s', (frase) => {
     expect(texto).toContain(frase);
@@ -152,18 +152,18 @@ describe('Plan de estudios: textos generados con los datos', () => {
   const texto = textoVisible(<TabCurriculumEvaluation titulados={titulados} empleadores={empleadores} />);
 
   it.each([
-    'Concordancia con el mercado laboral concentra el mayor desacuerdo: 37.7% responde en desacuerdo o totalmente en desacuerdo.',
+    'Concordancia con el mercado laboral concentra el mayor desacuerdo: 39.3% responde en desacuerdo o totalmente en desacuerdo.',
     'Pertinencia de las labores tiene la media más alta y concordancia con el mercado laboral la más baja.',
-    'Satisfacción global 151 2.77 0.62 73.5%',
-    'Pertinencia de las labores 110 3.23 0.76 89.1%',
-    'Lo más valorado: habilidades analíticas y resolución de problemas (53.9%).',
-    'La mejora más pedida: actualización constante del plan de estudios (70.4%).',
-    'Base de Datos es la más mencionada (94.7%).',
-    'Aplic. Interactivas TV Digital es la menos útil para el 50.0%.',
-    'Confianza y calidad del perfil 64.4',
-    'Participación en mejora de la carrera 34.5',
+    'Satisfacción global 182 2.80 0.64 75.3%',
+    'Pertinencia de las labores 139 3.26 0.75 90.6%',
+    'Lo más valorado: habilidades analíticas y resolución de problemas (57.1%).',
+    'La mejora más pedida: actualización constante del plan de estudios (72.8%).',
+    'Base de Datos es la más mencionada (93.5%).',
+    'Aplic. Interactivas TV Digital es la menos útil para el 52.7%.',
+    'Confianza y calidad del perfil 63.2',
+    'Participación en mejora de la carrera 39.5',
     'Confianza en la Carrera es lo mejor valorado; perfil coherente, lo más bajo del perfil.',
-    'La dimensión más débil es participación en mejora de la carrera; «Autoevaluación» tiene el menor índice (25.0).'
+    'La dimensión más débil es participación en mejora de la carrera; «Autoevaluación» tiene el menor índice (27.7).'
   ])('muestra: %s', (frase) => {
     expect(texto).toContain(frase);
   });
@@ -174,23 +174,23 @@ describe('Mercado laboral: textos generados con los datos', () => {
   const empresas = textoVisible(<TabLaborMarket titulados={titulados} empleadores={empleadores} vistaInicial="empleadores" />);
 
   it.each([
-    'Tasa de ocupación 82.9% trabaja o emprende: 126 de 152',
-    'El 17.1% no trabaja actualmente (26 titulados).',
-    'El 76.9% consiguió empleo en 4 meses o menos; el 17.3% tardó más de 8 meses.',
-    'Gana más de Bs. 7 000 el 52.8% en el sector privado y el 23.8% en el público.',
-    'Desarrollo de Software concentra el 62.7% del empleo en organizaciones.',
-    'La razón más citada: requisitos de habilidades específicas (28.0%).',
-    'El 81.3% considera importante la formación recibida para su negocio.'
+    'Tasa de ocupación 84.8% trabaja o emprende: 156 de 184',
+    'El 15.2% no trabaja actualmente (28 titulados).',
+    'El 73.9% consiguió empleo en 4 meses o menos; el 17.2% tardó más de 8 meses.',
+    'Gana más de Bs. 7 000 el 58.5% en el sector privado y el 24.2% en el público.',
+    'Desarrollo de Software concentra el 64.0% del empleo en organizaciones.',
+    'La razón más citada: requisitos de habilidades específicas (28.6%).',
+    'El 82.4% considera importante la formación recibida para su negocio.'
   ])('titulados muestra: %s', (frase) => {
     expect(titulos).toContain(frase);
   });
 
   it.each([
-    'Sector privado 76.5% 39 de 51 organizaciones',
-    'Contrató en los últimos 5 años 80.4% 41 de 51',
-    'Exige licenciatura 72.5% 37 de 51',
+    'Sector privado 79.5% 62 de 78 organizaciones',
+    'Contrató en los últimos 5 años 83.3% 65 de 78',
+    'Exige licenciatura 74.4% 58 de 78',
     'IA es la única tecnología mencionada por más de la mitad de los empleadores.',
-    '50 respuestas válidas, % de menciones',
+    '76 respuestas válidas, % de menciones',
     'Las más pedidas son adaptabilidad y aprendizaje continuo y trabajo en equipo.'
   ])('empleadores muestra: %s', (frase) => {
     expect(empresas).toContain(frase);
@@ -202,26 +202,26 @@ describe('Portada y plan estratégico: cifras calculadas', () => {
   const plan = textoVisible(<TabStrategicPlan titulados={titulados} empleadores={empleadores} onOpenReport={nada} />);
 
   it.each([
-    'Tasa de ocupación 82.9% 126 de 152 trabaja o emprende',
-    'Interés en un posgrado 82.8% 125 de 151',
-    'Prefiere IA 43.7%',
-    'Pagó su posgrado con recursos propios 91.1% 92 de 101',
-    'Vinculación con empleadores 43.8',
-    'El sector privado paga más Yates χ² = 4.385, p = 0.0363, V = 0.22',
-    '82.8% interesados; IA e Ingeniería de Software suman 68.3% de las preferencias',
-    '49.0% nunca fue consultado en la autoevaluación'
+    'Tasa de ocupación 84.8% 156 de 184 trabaja o emprende',
+    'Interés en un posgrado 84.2% 155 de 184',
+    'Prefiere IA 45.2%',
+    'Pagó su posgrado con recursos propios 93.3% 111 de 119',
+    'Vinculación con empleadores 45.3',
+    'El sector privado paga más Yates χ² = 10.477, p = 0.0012, V = 0.27',
+    '84.2% interesados; IA e Ingeniería de Software suman 69.0% de las preferencias',
+    '44.9% nunca fue consultado en la autoevaluación'
   ])('portada muestra: %s', (frase) => {
     expect(portada).toContain(frase);
   });
 
   it.each([
-    '37.7% en desacuerdo con la concordancia; 70.4% pide actualizar el plan',
-    'Aplic. Interactivas TV Digital 50.0%, Básicas (Física, Cálculo, Álgebra) 46.1% y Contabilidad Básica 43.4%',
-    'Confianza de los empleadores en la Carrera: índice 64.4, 86.4% de acuerdo',
-    'Ampliar las pasantías con empresas de software (solo 29.6% las valora hoy)',
-    'hoy 8.9%; meta: 30%',
-    'hoy 33.3%; meta: más de 70%',
-    'hoy 62.3%; meta: más de 80%'
+    '39.3% en desacuerdo con la concordancia; 72.8% pide actualizar el plan',
+    'Aplic. Interactivas TV Digital 52.7%, Básicas (Física, Cálculo, Álgebra) 45.7% y Telefonía IP 43.5%',
+    'Confianza de los empleadores en la Carrera: índice 63.2, 84.6% de acuerdo',
+    'Ampliar las pasantías con empresas de software (solo 30.4% las valora hoy)',
+    'hoy 6.7%; meta: 30%',
+    'hoy 38.5%; meta: más de 70%',
+    'hoy 60.7%; meta: más de 80%'
   ])('plan muestra: %s', (frase) => {
     expect(plan).toContain(frase);
   });
@@ -236,20 +236,20 @@ describe('Escenarios de decisión: resultados y textos generados', () => {
       'IA, Ingeniería de Software y Redes de Datos y Seguridad alcanzan el mínimo de 15 inscritos en al menos el 80% de las réplicas; conviene ofrecer Base de Datos y Robótica como módulos.'
     );
     expect(t).toContain('Números usados 40 000 / 100 000');
-    expect(t).toContain('base: 125 de 151');
-    expect(t).toContain('base: 40 de 126');
+    expect(t).toContain('base: 155 de 184');
+    expect(t).toContain('base: 48 de 155');
   });
 
   it('B: incremento con convenios y prueba de Welch', () => {
     const t = vista('B');
-    expect(t).toContain('Con 30.0% de becados, la matrícula pasa de 101.2 a 118.6 inscritos (+17.2%); la diferencia es significativa.');
+    expect(t).toContain('Con 30.0% de becados, la matrícula pasa de 99.4 a 117.5 inscritos (+18.1%); la diferencia es significativa.');
     expect(t).toContain('Números usados 60 000 / 100 000');
-    expect(t).toContain('base: 9 de 101');
+    expect(t).toContain('base: 8 de 119');
   });
 
   it('C: inserción rápida', () => {
     const t = vista('C');
-    expect(t).toContain('La inserción en 4 meses o menos sube de 76.9% a 88.5% (+11.7 puntos).');
+    expect(t).toContain('La inserción en 4 meses o menos sube de 73.9% a 87.0% (+13.2 puntos).');
     expect(t).toContain('Números usados 80 000 / 100 000');
   });
 

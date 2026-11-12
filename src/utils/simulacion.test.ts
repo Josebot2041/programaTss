@@ -33,12 +33,12 @@ describe('Generador congruencial mixto (a = 8121, c = 28411, m = 100 000)', () =
 });
 
 describe('Parámetros tomados de la base', () => {
-  it('P(interés) = 125/151, P(FCyT) = 40/126, beca actual = 9/101 y tiempos sobre 104', () => {
-    expect([parametros.interes.n, parametros.interes.total, redondear(parametros.interes.valor, 3)]).toEqual([125, 151, 0.828]);
-    expect([parametros.fcyt.n, parametros.fcyt.total, redondear(parametros.fcyt.valor, 3)]).toEqual([40, 126, 0.317]);
-    expect([parametros.becaActual.n, parametros.becaActual.total, redondear(parametros.becaActual.valor, 3)]).toEqual([9, 101, 0.089]);
-    expect(parametros.areas.map((a) => redondear(a.probabilidad, 3))).toEqual([0.437, 0.246, 0.198, 0.079, 0.04]);
-    expect(parametros.totalTiempos).toBe(104);
+  it('P(interés) = 155/184, P(FCyT) = 48/155, beca actual = 8/119 y tiempos sobre 134', () => {
+    expect([parametros.interes.n, parametros.interes.total, redondear(parametros.interes.valor, 3)]).toEqual([155, 184, 0.842]);
+    expect([parametros.fcyt.n, parametros.fcyt.total, redondear(parametros.fcyt.valor, 3)]).toEqual([48, 155, 0.31]);
+    expect([parametros.becaActual.n, parametros.becaActual.total, redondear(parametros.becaActual.valor, 3)]).toEqual([8, 119, 0.067]);
+    expect(parametros.areas.map((a) => redondear(a.probabilidad, 3))).toEqual([0.452, 0.239, 0.206, 0.071, 0.032]);
+    expect(parametros.totalTiempos).toBe(134);
   });
 });
 
@@ -84,9 +84,9 @@ describe('Escenario B: convenios de becas', () => {
     semilla: 78901
   });
 
-  it('P(inscribirse sin beca) = P(FCyT) · conversión ≈ 0.111', () => {
-    expect(redondear(b.probabilidadSinBeca, 3)).toBe(0.111);
-    expect(redondear(b.probabilidadConBeca, 3)).toBe(0.222);
+  it('P(inscribirse sin beca) = P(FCyT) · conversión ≈ 0.108', () => {
+    expect(redondear(b.probabilidadSinBeca, 3)).toBe(0.108);
+    expect(redondear(b.probabilidadConBeca, 3)).toBe(0.217);
   });
 
   it('consume dos números por titulado (situación actual y con convenios)', () => {
@@ -111,6 +111,7 @@ describe('Escenario C: pasantías', () => {
 
   it('la situación real simulada reproduce la distribución de la base', () => {
     expect(c.ajusteReal.ajusta).toBe(true);
-    expect(Math.abs((c.rapidaReal?.media ?? 0) - 76.24)).toBeLessThan(1);
+    // 99 de 134 titulados consiguieron empleo en 4 meses o menos (73,88 %)
+    expect(Math.abs((c.rapidaReal?.media ?? 0) - 73.88)).toBeLessThan(1);
   });
 });

@@ -32,50 +32,49 @@ describe('Importación de la base real (Base_Limpia_Titulados_Empleadores.xlsx)'
 
   it('lee las tres hojas completas y sin problemas', () => {
     expect(r.problemas).toEqual([]);
-    expect(titulados).toHaveLength(148);
-    expect(empleadores).toHaveLength(51);
+    expect(titulados).toHaveLength(184);
+    expect(empleadores).toHaveLength(78);
     expect(r.items).toHaveLength(18);
   });
 
   it('respeta los valores vacíos en lugar de inventarlos', () => {
     expect(titulados.filter((t) => t.anios_vida_profesional === undefined)).toHaveLength(3);
-    expect(titulados.filter((t) => t.anios_desempleado === undefined)).toHaveLength(5);
-    expect(titulados.filter((t) => t.rubro === undefined)).toHaveLength(40);
-    expect(titulados.filter((t) => t.satisfaccion_global === undefined)).toHaveLength(1);
+    expect(titulados.filter((t) => t.anios_desempleado === undefined)).toHaveLength(4);
+    expect(titulados.filter((t) => t.rubro === undefined)).toHaveLength(45);
+    expect(titulados.filter((t) => t.satisfaccion_global === undefined)).toHaveLength(2);
   });
 
   it('normaliza categorías y escalas Likert', () => {
-    expect(contar(titulados.map((t) => t.genero))).toEqual(new Map([['Hombre', 115], ['Mujer', 33]]));
-    expect(contar(titulados.map((t) => t.sector)).get('Público')).toBe(21);
+    expect(contar(titulados.map((t) => t.genero))).toEqual(new Map([['Hombre', 147], ['Mujer', 37]]));
+    expect(contar(titulados.map((t) => t.sector)).get('Público')).toBe(33);
     expect(contar(titulados.map((t) => t.remuneracion)).get('Menor a Bs. 2.500')).toBe(5);
-    expect(contar(titulados.map((t) => t.medio_obtencion)).get('Postulación competitiva (convocatorias públicas y privadas)')).toBe(44);
+    expect(contar(titulados.map((t) => t.medio_obtencion)).get('Postulación competitiva (convocatorias públicas y privadas)')).toBe(55);
     // pertinencia_labores debe leerse de su propia columna (no de importancia_formacion_negocio)
     expect(contar(titulados.map((t) => t.pertinencia_labores))).toEqual(
-      new Map([[undefined, 40], [4, 42], [3, 56], [2, 5], [1, 5]])
+      new Map([[undefined, 45], [4, 55], [3, 71], [2, 7], [1, 6]])
     );
-    expect(contar(empleadores.map((e) => e.tipo))).toEqual(new Map([['Privado', 39], ['Público', 12]]));
+    expect(contar(empleadores.map((e) => e.tipo))).toEqual(new Map([['Privado', 62], ['Público', 16]]));
     expect(contar(empleadores.map((e) => e.items_likert.item_01))).toEqual(
       new Map([
-        ['Totalmente de acuerdo', 23],
-        ['Parcialmente de acuerdo', 15],
-        [undefined, 7],
-        ['Totalmente en desacuerdo', 4],
-        ['No sabe', 2]
+        ['Totalmente de acuerdo', 37],
+        ['Parcialmente de acuerdo', 29],
+        ['Totalmente en desacuerdo', 7],
+        ['No sabe', 5]
       ])
     );
   });
 
   it('separa las respuestas de selección múltiple', () => {
     const ventaja = contar(titulados.flatMap((t) => t.asignaturas_ventaja));
-    expect(ventaja.get('Base de Datos')).toBe(140);
-    expect(ventaja.get('T.I.S.')).toBe(110);
-    expect(contar(empleadores.flatMap((e) => e.cargos)).get('Técnico')).toBe(36);
+    expect(ventaja.get('Base de Datos')).toBe(172);
+    expect(ventaja.get('T.I.S.')).toBe(136);
+    expect(contar(empleadores.flatMap((e) => e.cargos)).get('Técnico')).toBe(58);
   });
 
   it('calcula el segmento junior / consolidado', () => {
     const seg = contar(titulados.map((t) => t.segmento));
-    expect(seg.get('Junior (< 5 años)')).toBe(62);
-    expect(seg.get('Consolidado (≥ 5 años)')).toBe(83);
+    expect(seg.get('Junior (< 5 años)')).toBe(71);
+    expect(seg.get('Consolidado (≥ 5 años)')).toBe(110);
     expect(seg.get(undefined)).toBe(3);
   });
 });
@@ -109,37 +108,35 @@ describe('Importación de CSV', () => {
   });
 });
 
-describe('Base real de public/data: el CSV y, lo que no traiga, del .xlsx', async () => {
+describe('Base real de public/data (importarBaseReal)', async () => {
   const { leerBaseRealLocal } = await import('./baseRealLocal');
   const { importarBaseReal } = await import('./importador');
-  const base = await leerBaseRealLocal();
 
-  it('toma los titulados del CSV y los empleadores y las afirmaciones del .xlsx', () => {
+  it('lee titulados, empleadores y afirmaciones del .xlsx generado con cargar-encuestas', async () => {
+    const base = await leerBaseRealLocal();
+    expect(base.fuentes).toEqual({
+      titulados: 'Base_Limpia_Titulados_Empleadores.xlsx',
+      empleadores: 'Base_Limpia_Titulados_Empleadores.xlsx',
+      items: 'Base_Limpia_Titulados_Empleadores.xlsx'
+    });
+    expect(base.problemas).toEqual([]);
+    expect(base.titulados).toEqual(r.titulados);
+    expect(base.empleadores).toEqual(r.empleadores);
+    expect(base.items).toEqual(r.items);
+  });
+
+  it('un CSV con solo titulados tiene prioridad y se completa con el .xlsx; sin archivos avisa', async () => {
+    const wb = XLSX.read(readFileSync(RUTA_EXCEL), { type: 'buffer' });
+    const filas = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets['Titulados'], { header: 1 }).slice(0, 4);
+    const csv = Buffer.from(filas.map((f) => f.join(';')).join('\n'), 'utf-8');
+    const base = await importarBaseReal(async (nombre) => aArrayBuffer(nombre.endsWith('.csv') ? csv : readFileSync(RUTA_EXCEL)));
     expect(base.fuentes).toEqual({
       titulados: 'Base_Limpia_Titulados_Empleadores.csv',
       empleadores: 'Base_Limpia_Titulados_Empleadores.xlsx',
       items: 'Base_Limpia_Titulados_Empleadores.xlsx'
     });
-    expect(base.problemas).toEqual([]);
-    expect(base.titulados).toHaveLength(152);
+    expect(base.titulados).toHaveLength(3);
     expect(base.empleadores).toEqual(r.empleadores);
-    expect(base.items).toEqual(r.items);
-  });
-
-  it('el CSV conserva los 148 titulados del .xlsx y agrega 4 nuevos', () => {
-    const delCsv = new Map((base.titulados ?? []).map((t) => [t.id, t]));
-    for (const t of r.titulados ?? []) expect(delCsv.get(t.id)).toEqual(t);
-    expect([...delCsv.keys()].filter((id) => Number(id) > 148)).toEqual(['149', '150', '151', '156']);
-  });
-
-  it('sin CSV usa el .xlsx completo, y sin ningún archivo avisa', async () => {
-    const soloXlsx = await importarBaseReal(async (nombre) => (nombre.endsWith('.xlsx') ? aArrayBuffer(readFileSync(RUTA_EXCEL)) : undefined));
-    expect(soloXlsx.fuentes).toEqual({
-      titulados: 'Base_Limpia_Titulados_Empleadores.xlsx',
-      empleadores: 'Base_Limpia_Titulados_Empleadores.xlsx',
-      items: 'Base_Limpia_Titulados_Empleadores.xlsx'
-    });
-    expect(soloXlsx.titulados).toEqual(r.titulados);
     await expect(importarBaseReal(async () => undefined)).rejects.toThrow(/No se encontró/);
   });
 });

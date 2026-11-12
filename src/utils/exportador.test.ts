@@ -34,9 +34,9 @@ describe('Exportación', () => {
   it('la hoja Resultados contiene los valores de control', () => {
     const filas = filasResultados(titulados, empleadores);
     const valor = (indicador: string) => filas.find((f) => f[1] === indicador)?.[2];
-    expect(valor('Años de vida profesional: media')).toBe(8.6342);
-    expect(valor('Dos áreas principales (%)')).toBe(68.3);
-    expect(valor('Nivel del programa × fuente de financiamiento: p oficial')).toBe(0.1374);
-    expect(valor('Índice: Participación del empleador en la mejora de la Carrera')).toBe(34.5);
+    expect(valor('Años de vida profesional: media')).toBe(9.0359);
+    expect(valor('Dos áreas principales (%)')).toBe(69);
+    expect(valor('Nivel del programa × fuente de financiamiento: p oficial')).toBe(0.1121);
+    expect(valor('Índice: Participación del empleador en la mejora de la Carrera')).toBe(39.5);
   });
 });

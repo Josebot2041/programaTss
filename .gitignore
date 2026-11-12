@@ -5,3 +5,6 @@ dist/
 *.log
 test-results/
 playwright-report/
+
+# Excel crudos de los formularios: tienen datos de contacto (no se publican)
+data/encuestas/*.xlsx

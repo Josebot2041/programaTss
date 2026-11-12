@@ -65,15 +65,20 @@ avisa que no se guardaron.
    Si la base tiene el esquema anterior (sin normalizar), sus tablas se mueven al esquema
    `legacy` y el paso siguiente migra las encuestas de formularios.
 
-5. **Cargar los catálogos y la base oficial** desde `public/data/` (152 titulados, 51 empleadores y
-   18 afirmaciones). Cada parte sale del primer archivo que la traiga:
-   `Base_Limpia_Titulados_Empleadores.csv` (hoy solo titulados, separados por «;») y, lo que el CSV
-   no tenga, `Base_Limpia_Titulados_Empleadores.xlsx` (hoy empleadores y afirmaciones). El respaldo
-   del frontend y las pruebas usan la misma regla:
+5. **Cargar los catálogos y la base oficial** desde
+   `public/data/Base_Limpia_Titulados_Empleadores.xlsx` (184 titulados, 78 empleadores y 18
+   afirmaciones), que también usan el respaldo del frontend y las pruebas:
 
    ```bash
    npm run db:seed
    ```
+
+   Esa base limpia se genera a partir de los Excel exportados de los formularios oficiales. Para
+   regenerarla, copie los dos Excel en `data/encuestas/` y ejecute `npm run cargar-encuestas`: aplica
+   las reglas de limpieza y deja el detalle de cada fila descartada o corregida en
+   `data/encuestas/reporte_limpieza.md`. Los Excel crudos tienen datos de contacto, así que **no se
+   suben al repositorio** (están en `.gitignore`); la base limpia no los incluye. No ejecute
+   `borrar-base-oficial`: elimina todos los registros oficiales.
 
    Primero carga los catálogos desde `src/data/catalogos.ts`, luego las afirmaciones y los
    registros oficiales, todo en una transacción. Se puede ejecutar las veces que haga falta: los

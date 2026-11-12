@@ -1,8 +1,8 @@
 /**
  * npm run db:seed — carga la base oficial de public/data en PostgreSQL usando el mismo importador
- * que la aplicación. Cada parte sale del primer archivo que la traiga: Base_Limpia_Titulados_
- * Empleadores.csv y, lo que el CSV no tenga (p. ej. empleadores y afirmaciones), del .xlsx.
- * Todo ocurre en una sola transacción:
+ * que la aplicación: Base_Limpia_Titulados_Empleadores.xlsx, que genera npm run cargar-encuestas
+ * a partir de los Excel de los formularios. (Si hubiera un .csv con solo una hoja, cada parte sale
+ * del primer archivo que la traiga.) Todo ocurre en una sola transacción:
  *
  *   1. Catálogos (desde src/data/catalogos.ts) y escalas Likert.
  *   2. Afirmaciones de empleadores (hoja Items_empleadores).
@@ -12,7 +12,8 @@
  *
  * Se puede ejecutar varias veces: cada registro oficial se identifica por su id; si ya existe
  * se reemplaza (conservando su fecha de creación) en lugar de duplicarse. Nunca modifica
- * registros cargados desde los formularios.
+ * registros cargados desde los formularios ni borra registros oficiales que falten en el archivo
+ * (solo los informa).
  */
 
 import type pg from 'pg';
@@ -98,6 +99,8 @@ interface Conteo {
   insertados: number;
   actualizados: number;
   omitidos: string[];
+  /** Ids oficiales que están en la base pero no en el archivo. */
+  sobrantes: number[];
 }
 
 /**
@@ -111,7 +114,7 @@ async function cargarOficiales<T extends { id: string }>(
   insertar: (cliente: pg.ClientBase, ids: Ids, r: T, datos: DatosInsercion) => Promise<number>,
   ids: Ids
 ): Promise<Conteo> {
-  const conteo: Conteo = { insertados: 0, actualizados: 0, omitidos: [] };
+  const conteo: Conteo = { insertados: 0, actualizados: 0, omitidos: [], sobrantes: [] };
   for (const r of registros) {
     const id = idNumerico(r.id);
     const { rows } = await cliente.query<{ origen: string; created_at: Date }>(
@@ -174,6 +177,17 @@ try {
     const cEmp = await cargarOficiales(cliente, 'empleadores', empleadores, insertarEmpleador, ids);
     const migrados = await migrarEsquemaAnterior(cliente, ids);
 
+    // Registros oficiales que ya no están en el archivo: se informan, no se borran.
+    const sobrantes = async (tabla: Tabla, registros: Array<{ id: string }>) => {
+      const { rows } = await cliente.query<{ id: number }>(
+        `SELECT id FROM ${identificador(tabla)} WHERE origen = 'base_oficial' AND NOT (id = ANY ($1::int[])) ORDER BY id`,
+        [registros.map((r) => idNumerico(r.id))]
+      );
+      return rows.map((r) => r.id);
+    };
+    cTit.sobrantes = await sobrantes('titulados', titulados);
+    cEmp.sobrantes = await sobrantes('empleadores', empleadores);
+
     // Las encuestas nuevas reciben ids a partir del mayor existente.
     for (const tabla of ['titulados', 'empleadores'] as const) {
       await cliente.query(
@@ -188,6 +202,9 @@ try {
     console.log(`${nombre}: ${c.insertados} nuevos, ${c.actualizados} actualizados`);
     if (c.omitidos.length > 0) {
       console.warn(`  ${c.omitidos.length} omitidos porque su id ya lo usa un formulario: ${c.omitidos.join(', ')}`);
+    }
+    if (c.sobrantes.length > 0) {
+      console.warn(`  ${c.sobrantes.length} registros oficiales de la base ya no están en el archivo (no se borran): ${c.sobrantes.join(', ')}`);
     }
   };
   console.log(`Catálogos: ${informe.catalogos} valores nuevos`);
