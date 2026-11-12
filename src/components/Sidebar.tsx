@@ -5,6 +5,7 @@ import {
   Building2,
   Cpu,
   Database,
+  ExternalLink,
   FileText,
   Gauge,
   GraduationCap,
@@ -12,7 +13,6 @@ import {
   Layers,
   LineChart,
   Printer,
-  UserCheck,
   Users,
   X
 } from 'lucide-react';
@@ -37,8 +37,8 @@ interface SidebarProps {
   empleadoresCount: number;
   isOpenMobile: boolean;
   onCloseMobile: () => void;
-  /** Muestra la sección "Administración" (solo para administradores). */
-  esAdmin?: boolean;
+  /** Vuelve a la portada pública (sin cerrar la sesión). */
+  onVerPortada: () => void;
 }
 
 /** Navegación principal: etiquetas de 2 a 4 palabras, agrupadas por propósito. */
@@ -65,15 +65,12 @@ export const NAVEGACION: NavSection[] = [
   },
   {
     group: 'Datos',
-    items: [
-      { id: 'encuesta_titulados', label: 'Encuesta a titulados', icon: UserCheck },
-      { id: 'encuesta_empleadores', label: 'Encuesta a empleadores', icon: Building2 },
-      { id: 'encuestas', label: 'Base de datos', icon: Database }
-    ]
+    // Las encuestas se llenan desde la portada pública
+    items: [{ id: 'encuestas', label: 'Base de datos', icon: Database }]
   }
 ];
 
-/** Sección visible solo para administradores; sus ids empiezan con "admin". */
+/** Gestión de usuarios y tablas completas; sus ids empiezan con "admin". */
 export const NAVEGACION_ADMIN: NavSection = {
   group: 'Administración',
   items: [
@@ -85,8 +82,6 @@ export const NAVEGACION_ADMIN: NavSection = {
   ]
 };
 
-export const esPestanaAdmin = (id: string) => NAVEGACION_ADMIN.items.some((i) => i.id === id);
-
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   setActiveTab,
@@ -95,7 +90,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   empleadoresCount,
   isOpenMobile,
   onCloseMobile,
-  esAdmin = false
+  onVerPortada
 }) => {
   const seleccionar = (id: string) => {
     setActiveTab(id);
@@ -122,7 +117,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5" aria-label="Secciones">
-          {(esAdmin ? [...NAVEGACION, NAVEGACION_ADMIN] : NAVEGACION).map((seccion) => (
+          {[...NAVEGACION, NAVEGACION_ADMIN].map((seccion) => (
             <div key={seccion.group}>
               <div className="px-2 mb-1 text-xs font-medium text-slate-500">{seccion.group}</div>
               <ul className="space-y-0.5">
@@ -162,6 +157,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <Printer className="w-4 h-4" />
             Informe en PDF
           </button>
+          <a
+            href={typeof window === 'undefined' ? '/' : window.location.pathname}
+            onClick={(e) => {
+              e.preventDefault();
+              onCloseMobile();
+              onVerPortada();
+            }}
+            className="flex items-center justify-center gap-1.5 text-sm text-slate-600 hover:text-institucional hover:underline"
+          >
+            <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
+            Ver portada pública
+          </a>
           <div className="text-xs text-slate-500">
             {tituladosCount} titulados · {empleadoresCount} empleadores
             <br />

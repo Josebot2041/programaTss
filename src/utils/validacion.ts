@@ -37,6 +37,12 @@ import type { Empleador, Titulado } from '../types';
 
 export type Errores = Record<string, string>;
 
+/**
+ * Campo trampa (honeypot) de las encuestas públicas: va oculto en el formulario, así que una
+ * persona lo deja vacío y un bot que completa todos los campos lo llena.
+ */
+export const CAMPO_TRAMPA = 'sitio_web';
+
 /** Estado de un formulario: '' significa "sin elegir". */
 export type Borrador<T> = { [K in keyof T]: T[K] | '' };
 

@@ -18,18 +18,17 @@ import { EncabezadoPagina, Nota } from './ui/Estructura';
 import { CampoCasillas, CampoOpciones, CampoSelect, CampoTexto, GrupoFormulario } from './ui/Formulario';
 
 interface FormEmpleadoresSurveyProps {
-  /** Guarda la encuesta en la base (API) y devuelve el registro guardado o los errores. */
+  /** Envía la encuesta a la API y devuelve el registro guardado o los errores. */
   onGuardarEmpleador: (borrador: BorradorEmpleador) => Promise<ResultadoGuardado<Empleador>>;
-  onNavigateToAnalytics: () => void;
-  idsExistentes: string[];
+  /** Ids ya usados, para validar como lo hace la base (en la encuesta pública, ninguno). */
+  idsExistentes?: string[];
 }
 
 const OPCIONES_LIKERT = LIKERT_EMPLEADOR.map((texto) => ({ valor: texto, texto }));
 
-export const FormEmpleadoresSurvey: React.FC<FormEmpleadoresSurveyProps> = ({ onGuardarEmpleador, onNavigateToAnalytics, idsExistentes }) => {
+export const FormEmpleadoresSurvey: React.FC<FormEmpleadoresSurveyProps> = ({ onGuardarEmpleador, idsExistentes = [] }) => {
   const [b, setB] = useState<BorradorEmpleador>(BORRADOR_EMPLEADOR_VACIO);
   const [errores, setErrores] = useState<Errores>({});
-  const [guardado, setGuardado] = useState<string>('');
   const [enviando, setEnviando] = useState<boolean>(false);
   const [errorEnvio, setErrorEnvio] = useState<string>('');
 
@@ -50,7 +49,6 @@ export const FormEmpleadoresSurvey: React.FC<FormEmpleadoresSurveyProps> = ({ on
     ev.preventDefault();
     const r = validarEmpleador(b, siguienteId(idsExistentes));
     setErrores(r.errores);
-    setGuardado('');
     setErrorEnvio('');
     if (!r.registro) return;
 
@@ -58,7 +56,6 @@ export const FormEmpleadoresSurvey: React.FC<FormEmpleadoresSurveyProps> = ({ on
     const resultado = await onGuardarEmpleador(b);
     setEnviando(false);
     if (resultado.ok) {
-      setGuardado(resultado.registro.id);
       setB(BORRADOR_EMPLEADOR_VACIO);
     } else {
       setErrores(resultado.errores);
@@ -71,21 +68,16 @@ export const FormEmpleadoresSurvey: React.FC<FormEmpleadoresSurveyProps> = ({ on
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <EncabezadoPagina titulo="Encuesta a empleadores" descripcion="Los campos con * son obligatorios. La respuesta se agrega a la base activa." />
-
-      {guardado && (
-        <Nota>
-          Se registró la organización n.º {guardado}.{' '}
-          <button onClick={onNavigateToAnalytics} className="text-institucional hover:underline">
-            Ver la valoración de los empleadores
-          </button>
-        </Nota>
-      )}
+      <EncabezadoPagina
+        titulo="Encuesta a empleadores de titulados de Ingeniería de Sistemas"
+        descripcion="Su opinión sobre los profesionales de la Carrera ayuda a evaluarla para la acreditación ARCU-SUR. Los campos con * son obligatorios."
+      />
       {nErrores > 0 && <Nota tono="resalte">Revise {nErrores === 1 ? 'el campo marcado' : `los ${nErrores} campos marcados`}.</Nota>}
       {errorEnvio && <Nota tono="resalte">{errorEnvio}</Nota>}
 
+      {/* Secciones en el orden de la encuesta oficial (Google Forms) */}
       <form onSubmit={enviar} noValidate className="space-y-4">
-        <GrupoFormulario titulo="Organización">
+        <GrupoFormulario titulo="1. Datos de la organización">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
               <CampoTexto
@@ -100,6 +92,11 @@ export const FormEmpleadoresSurvey: React.FC<FormEmpleadoresSurveyProps> = ({ on
             {select('tipo', 'Tipo', TIPOS_ORGANIZACION)}
             {select('tamano', 'Tamaño', TAMANOS_EMPRESA)}
             {select('rubro', 'Rubro', RUBROS_EMPLEADOR)}
+          </div>
+        </GrupoFormulario>
+
+        <GrupoFormulario titulo="2. Contratación de titulados">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {select('contrato_5_anios', '¿Contrató ingenieros de sistemas en los últimos 5 años?', SI_NO)}
             {select('posibilidad_contratacion', 'Previsión de contratación', POSIBILIDADES_CONTRATACION)}
             {select('nivel_demandado', 'Nivel de formación exigido', NIVELES_DEMANDADOS)}
@@ -108,12 +105,12 @@ export const FormEmpleadoresSurvey: React.FC<FormEmpleadoresSurveyProps> = ({ on
           <CampoCasillas etiqueta="Cargos que ocupan los titulados" opciones={CARGOS_EMPLEADOR} seleccion={b.cargos} onCambiar={(v) => set('cargos', v)} />
         </GrupoFormulario>
 
-        <GrupoFormulario titulo="Tecnologías y habilidades">
+        <GrupoFormulario titulo="3. Tecnologías y habilidades">
           <CampoTexto id="emp-tendencias" etiqueta="Tecnologías y tendencias que considera indispensables" multilinea valor={b.tendencias} onCambiar={(v) => set('tendencias', v)} />
           <CampoTexto id="emp-habilidades" etiqueta="Habilidades más valoradas" multilinea valor={b.habilidades} onCambiar={(v) => set('habilidades', v)} />
         </GrupoFormulario>
 
-        <GrupoFormulario titulo={`Valoración de la Carrera (${respondidas} de ${AFIRMACIONES_EMPLEADORES.length} respondidas)`}>
+        <GrupoFormulario titulo={`4. Valoración de la Carrera (${respondidas} de ${AFIRMACIONES_EMPLEADORES.length} respondidas)`}>
           {errores.items_likert && <p className="text-xs text-resalte">{errores.items_likert}</p>}
           {DIMENSIONES_EMPLEADORES.map((dim) => (
             <div key={dim.dimension} className="space-y-4">
@@ -143,7 +140,7 @@ export const FormEmpleadoresSurvey: React.FC<FormEmpleadoresSurveyProps> = ({ on
             Limpiar
           </button>
           <button type="submit" disabled={enviando} className="px-4 py-2 text-sm text-white bg-institucional rounded hover:opacity-90 disabled:opacity-60">
-            {enviando ? 'Guardando…' : 'Guardar encuesta'}
+            {enviando ? 'Enviando…' : 'Enviar encuesta'}
           </button>
         </div>
       </form>

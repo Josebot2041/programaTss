@@ -1,6 +1,6 @@
 /**
  * Sesiones del servidor (express-session + connect-pg-simple, tabla "sesiones"), middlewares
- * de acceso y límite de intentos de login.
+ * de acceso, límite de intentos de login y límite de envíos de las encuestas públicas.
  *
  * La cookie solo guarda el id de la sesión (httpOnly, SameSite=Lax y Secure en producción).
  * Cada petición protegida vuelve a leer el usuario de la base: si fue desactivado o eliminado,
@@ -120,6 +120,26 @@ export function crearLimiteLogin(): express.RequestHandler {
       res.status(429).json({
         error: `Demasiados intentos fallidos. Espere ${minutos} ${minutos === 1 ? 'minuto' : 'minutos'} antes de volver a intentar.`
       });
+    }
+  });
+}
+
+const VENTANA_ENCUESTAS_MS = 60 * 60 * 1000;
+
+/**
+ * Límite de envíos de una encuesta pública por IP cada hora (10, o LIMITE_ENCUESTAS_POR_HORA).
+ * Cuenta todos los envíos, válidos o no. Se crea uno por encuesta; el contador vive en memoria.
+ * Ojo: detrás de un NAT (p. ej. una sala de computadoras) todos comparten la misma IP.
+ */
+export function crearLimiteEncuestas(): express.RequestHandler {
+  return rateLimit({
+    windowMs: VENTANA_ENCUESTAS_MS,
+    limit: Number(process.env.LIMITE_ENCUESTAS_POR_HORA) || 10,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    keyGenerator: (req) => ipKeyGenerator(req.ip ?? ''),
+    handler: (_req, res) => {
+      res.status(429).json({ error: 'Se alcanzó el límite de envíos desde esta conexión. Intente de nuevo en una hora.' });
     }
   });
 }

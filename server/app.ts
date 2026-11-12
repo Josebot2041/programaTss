@@ -7,7 +7,16 @@
 import express from 'express';
 import { RUTAS, type Acceso, type Manejador } from './handlers';
 import type { Metodo } from './handlers/tipos';
-import { cerrarSesion, crearLimiteLogin, crearMiddlewareSesion, enProduccion, iniciarSesion, requiereAdmin, requiereSesion } from './sesion';
+import {
+  cerrarSesion,
+  crearLimiteEncuestas,
+  crearLimiteLogin,
+  crearMiddlewareSesion,
+  enProduccion,
+  iniciarSesion,
+  requiereAdmin,
+  requiereSesion
+} from './sesion';
 
 /** Primer valor de cada parámetro de la URL (?a=1&a=2 → a: '1'). */
 function parametros(query: express.Request['query']): Record<string, string> {
@@ -56,6 +65,8 @@ export function crearApp() {
   });
   app.use('/api', crearMiddlewareSesion());
   app.post('/api/auth/login', crearLimiteLogin());
+  app.post('/api/publico/titulados', crearLimiteEncuestas());
+  app.post('/api/publico/empleadores', crearLimiteEncuestas());
 
   for (const [ruta, { acceso, ...manejadores }] of Object.entries(RUTAS)) {
     for (const [metodo, manejador] of Object.entries(manejadores) as Array<[Metodo, Manejador]>) {

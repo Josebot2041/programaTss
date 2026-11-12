@@ -1,13 +1,13 @@
 /**
  * Cliente de la API del backend (/api/*, ver server/).
- * Si la API no responde o falla (5xx), la aplicación usa el Excel local como respaldo y lo indica
- * en el Header (ver App.tsx). Un 401 nunca lleva al Excel: vuelve al login.
+ * En el panel, si la API no responde o falla (5xx), se usa el Excel local como respaldo y se indica
+ * en el Header (ver Panel.tsx). Un 401 nunca lleva al Excel: vuelve al login de administrador.
  * La sesión viaja en una cookie httpOnly que el navegador envía solo (mismo origen).
  */
 
 import type { Empleador, ItemEmpleador, Titulado } from '../types';
 import type { Rol } from '../data/catalogos';
-import type { BorradorEmpleador, BorradorTitulado, Errores } from './validacion';
+import { CAMPO_TRAMPA, type BorradorEmpleador, type BorradorTitulado, type Errores } from './validacion';
 import type { Usuario } from './validacionUsuario';
 
 /** Tiempo máximo de espera antes de considerar que la API no responde. */
@@ -85,15 +85,21 @@ async function enviar<T>(ruta: string, borrador: unknown): Promise<ResultadoGuar
     return { ok: true, registro: await pedir<T>('POST', ruta, borrador) };
   } catch (err) {
     const e = err as ErrorApi;
-    if (e.estado === 0) return { ok: false, errores: {}, mensaje: 'No se pudo conectar con el servidor; la encuesta no se guardó.' };
+    if (e.estado === 0) return { ok: false, errores: {}, mensaje: 'No se pudo conectar con el servidor; la encuesta no se envió. Intente de nuevo.' };
     if (e.estado === 400) return { ok: false, errores: e.errores };
-    if (e.estado === 401) return { ok: false, errores: {}, mensaje: 'Su sesión terminó; inicie sesión de nuevo. La encuesta no se guardó.' };
-    return { ok: false, errores: {}, mensaje: `El servidor no pudo guardar la encuesta (HTTP ${e.estado}).` };
+    if (e.estado === 429) return { ok: false, errores: {}, mensaje: e.message };
+    return { ok: false, errores: {}, mensaje: `El servidor no pudo guardar la encuesta (HTTP ${e.estado}). Intente de nuevo en unos minutos.` };
   }
 }
 
-export const guardarTitulado = (b: BorradorTitulado) => enviar<Titulado>('titulados', b);
-export const guardarEmpleador = (b: BorradorEmpleador) => enviar<Empleador>('empleadores', b);
+/**
+ * Encuestas de la portada pública (sin cuenta). `trampa` es el valor del campo oculto contra bots:
+ * una persona lo deja vacío.
+ */
+export const enviarTituladoPublico = (b: BorradorTitulado, trampa = '') =>
+  enviar<Titulado>('publico/titulados', { ...b, [CAMPO_TRAMPA]: trampa });
+export const enviarEmpleadorPublico = (b: BorradorEmpleador, trampa = '') =>
+  enviar<Empleador>('publico/empleadores', { ...b, [CAMPO_TRAMPA]: trampa });
 
 // ---------------------------------------------------------------------------
 // Sesión
@@ -110,9 +116,6 @@ export async function obtenerSesion(): Promise<Usuario | null> {
 }
 
 export const iniciarSesion = (ci: string, password: string) => pedir<Usuario>('POST', 'auth/login', { ci, password });
-
-export const registrarse = (datos: { nombre_completo: string; ci: string; password: string; confirmacion: string }) =>
-  pedir<Usuario>('POST', 'auth/registro', datos);
 
 export const cerrarSesion = () => pedir<{ ok: true }>('POST', 'auth/logout');
 

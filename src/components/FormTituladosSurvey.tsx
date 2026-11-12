@@ -26,18 +26,17 @@ import { EncabezadoPagina, Nota } from './ui/Estructura';
 import { CampoCasillas, CampoOpciones, CampoSelect, CampoTexto, GrupoFormulario } from './ui/Formulario';
 
 interface FormTituladosSurveyProps {
-  /** Guarda la encuesta en la base (API) y devuelve el registro guardado o los errores. */
+  /** Envía la encuesta a la API y devuelve el registro guardado o los errores. */
   onGuardarTitulado: (borrador: BorradorTitulado) => Promise<ResultadoGuardado<Titulado>>;
-  onNavigateToAnalytics: () => void;
-  idsExistentes: string[];
+  /** Ids ya usados, para validar como lo hace la base (en la encuesta pública, ninguno). */
+  idsExistentes?: string[];
 }
 
 const OPCIONES_LIKERT = LIKERT_TITULADOS.map((texto, i) => ({ valor: (i + 1) as Likert, texto }));
 
-export const FormTituladosSurvey: React.FC<FormTituladosSurveyProps> = ({ onGuardarTitulado, onNavigateToAnalytics, idsExistentes }) => {
+export const FormTituladosSurvey: React.FC<FormTituladosSurveyProps> = ({ onGuardarTitulado, idsExistentes = [] }) => {
   const [b, setB] = useState<BorradorTitulado>(BORRADOR_TITULADO_VACIO);
   const [errores, setErrores] = useState<Errores>({});
-  const [guardado, setGuardado] = useState<string>('');
   const [enviando, setEnviando] = useState<boolean>(false);
   const [errorEnvio, setErrorEnvio] = useState<string>('');
 
@@ -60,7 +59,6 @@ export const FormTituladosSurvey: React.FC<FormTituladosSurveyProps> = ({ onGuar
     ev.preventDefault();
     const r = validarTitulado(b, siguienteId(idsExistentes));
     setErrores(r.errores);
-    setGuardado('');
     setErrorEnvio('');
     if (!r.registro) return;
 
@@ -68,7 +66,6 @@ export const FormTituladosSurvey: React.FC<FormTituladosSurveyProps> = ({ onGuar
     const resultado = await onGuardarTitulado(b);
     setEnviando(false);
     if (resultado.ok) {
-      setGuardado(resultado.registro.id);
       setB(BORRADOR_TITULADO_VACIO);
     } else {
       setErrores(resultado.errores);
@@ -81,24 +78,51 @@ export const FormTituladosSurvey: React.FC<FormTituladosSurveyProps> = ({ onGuar
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <EncabezadoPagina titulo="Encuesta a titulados" descripcion="Los campos con * son obligatorios. La respuesta se agrega a la base activa." />
+      <EncabezadoPagina
+        titulo="Encuesta de opinión a titulados de Ingeniería de Sistemas"
+        descripcion="Sus respuestas ayudan a evaluar la Carrera para la acreditación ARCU-SUR. Los campos con * son obligatorios."
+      />
 
-      {guardado && (
-        <Nota>
-          Se registró la encuesta n.º {guardado}.{' '}
-          <button onClick={onNavigateToAnalytics} className="text-institucional hover:underline">
-            Ver el perfil de los titulados
-          </button>
-        </Nota>
-      )}
       {nErrores > 0 && <Nota tono="resalte">Revise {nErrores === 1 ? 'el campo marcado' : `los ${nErrores} campos marcados`}.</Nota>}
       {errorEnvio && <Nota tono="resalte">{errorEnvio}</Nota>}
 
+      {/* Secciones en el orden de la encuesta oficial (Microsoft Forms) */}
       <form onSubmit={enviar} noValidate className="space-y-4">
-        <GrupoFormulario titulo="Datos generales">
+        <GrupoFormulario titulo="1. Datos generales">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {select('edad', 'Edad', EDADES)}
             {select('genero', 'Género', GENEROS)}
+          </div>
+        </GrupoFormulario>
+
+        <GrupoFormulario titulo="2. Formación complementaria">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {select('formacion_complementaria', '¿Cursó o cursa algún posgrado?', SI_NO)}
+            {b.formacion_complementaria === 'Sí' && (
+              <>
+                {select('nivel_realizado', 'Nivel cursado', NIVELES_POSGRADO)}
+                {select('lugar_realizado', 'Institución donde lo cursó', LUGARES_POSGRADO)}
+                {select('financiamiento', 'Financiamiento', FINANCIAMIENTOS)}
+              </>
+            )}
+          </div>
+        </GrupoFormulario>
+
+        <GrupoFormulario titulo="3. Interés en posgrado">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {select('interes_posgrado', '¿Le interesa cursar un posgrado?', SI_NO)}
+            {b.interes_posgrado === 'Sí' && (
+              <>
+                {select('area_interes', 'Área de interés', AREAS_POSGRADO)}
+                {select('institucion_preferida', 'Institución preferida', INSTITUCIONES_PREFERIDAS)}
+              </>
+            )}
+          </div>
+          {likert('opinion_posgrado_fcyt', 'Existen posgrados afines en la Dirección de Posgrado FCyT')}
+        </GrupoFormulario>
+
+        <GrupoFormulario titulo="4. Vida profesional">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <CampoTexto
               id="tit-vida"
               etiqueta="Años de vida profesional"
@@ -121,27 +145,7 @@ export const FormTituladosSurvey: React.FC<FormTituladosSurveyProps> = ({ onGuar
           </div>
         </GrupoFormulario>
 
-        <GrupoFormulario titulo="Formación de posgrado">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {select('formacion_complementaria', '¿Cursó algún posgrado?', SI_NO)}
-            {b.formacion_complementaria === 'Sí' && (
-              <>
-                {select('nivel_realizado', 'Nivel cursado', NIVELES_POSGRADO)}
-                {select('lugar_realizado', 'Institución donde lo cursó', LUGARES_POSGRADO)}
-                {select('financiamiento', 'Financiamiento', FINANCIAMIENTOS)}
-              </>
-            )}
-            {select('interes_posgrado', '¿Le interesa cursar un posgrado?', SI_NO)}
-            {b.interes_posgrado === 'Sí' && (
-              <>
-                {select('area_interes', 'Área de interés', AREAS_POSGRADO)}
-                {select('institucion_preferida', 'Institución preferida', INSTITUCIONES_PREFERIDAS)}
-              </>
-            )}
-          </div>
-        </GrupoFormulario>
-
-        <GrupoFormulario titulo="Situación laboral">
+        <GrupoFormulario titulo="5. Situación laboral">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {select('situacion_laboral', 'Situación laboral actual', SITUACIONES_LABORALES)}
             {trabaja && (
@@ -154,16 +158,15 @@ export const FormTituladosSurvey: React.FC<FormTituladosSurveyProps> = ({ onGuar
               </>
             )}
           </div>
+          {trabaja && likert('pertinencia_labores', 'Sus labores actuales son pertinentes a su formación')}
         </GrupoFormulario>
 
-        <GrupoFormulario titulo="Valoración de la formación">
+        <GrupoFormulario titulo="6. Valoración de la formación">
           {likert('satisfaccion_global', 'Satisfacción global con la formación recibida')}
           {likert('concordancia_formacion', 'Concordancia entre la formación y los requerimientos laborales')}
-          {trabaja && likert('pertinencia_labores', 'Sus labores actuales son pertinentes a su formación')}
-          {likert('opinion_posgrado_fcyt', 'Existen posgrados afines en la Dirección de Posgrado FCyT')}
         </GrupoFormulario>
 
-        <GrupoFormulario titulo="Asignaturas">
+        <GrupoFormulario titulo="7. Asignaturas">
           <CampoCasillas
             etiqueta="Asignaturas que le dieron ventaja competitiva"
             opciones={ASIGNATURAS_VENTAJA}
@@ -190,7 +193,7 @@ export const FormTituladosSurvey: React.FC<FormTituladosSurveyProps> = ({ onGuar
             Limpiar
           </button>
           <button type="submit" disabled={enviando} className="px-4 py-2 text-sm text-white bg-institucional rounded hover:opacity-90 disabled:opacity-60">
-            {enviando ? 'Guardando…' : 'Guardar encuesta'}
+            {enviando ? 'Enviando…' : 'Enviar encuesta'}
           </button>
         </div>
       </form>

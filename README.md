@@ -4,16 +4,24 @@ Herramienta web de recolección, análisis estadístico y simulación estocásti
 empleadores de la Carrera de Ingeniería de Sistemas, para la materia **Taller de Simulación de
 Sistemas** (enfoque de acreditación ARCU-SUR).
 
-La interfaz (React) lee los datos de una API propia (Express) conectada a PostgreSQL. Para usarla hay
-que iniciar sesión con una cuenta (CI y contraseña); los administradores tienen además una sección de
-**Administración** con el panel de control, la gestión de usuarios y las tablas completas.
+La interfaz (React) lee los datos de una API propia (Express) conectada a PostgreSQL.
 
-Los datos se piden a la API solo con la sesión iniciada, y se vuelven a pedir al iniciar sesión, al
-guardar una encuesta y al volver a la pestaña. La barra superior indica siempre de dónde vienen:
-«Base de datos · N titulados» o, en naranja y con «Reintentar», «Respaldo Excel (sin conexión)».
-El Excel de `public/data/` se usa solo si la API no responde o falla (5xx); si la sesión venció
-(401) se vuelve al login. Las encuestas siempre se guardan en la base: sin conexión, el formulario
-avisa que no se guardaron.
+| Ruta | Página |
+|---|---|
+| `/` | Portada pública con tres opciones: «Soy titulado», «Soy empleador» y «Administrador» |
+| `/#encuesta-titulados` | Encuesta a titulados: se llena **sin cuenta** y termina con un agradecimiento |
+| `/#encuesta-empleadores` | Encuesta a empleadores, también sin cuenta |
+| `/#admin-login` | Acceso de administrador (CI y contraseña) |
+| `/#panel/<sección>` | Panel de análisis (solo administradores; sin sesión, lleva al login y después a esa sección) |
+
+No hay registro público: los encuestados no necesitan cuenta y los administradores se crean con
+`npm run crear-admin`. Una cuenta sin rol `admin` no puede entrar («No tiene permisos de
+administrador»).
+
+En el panel, los datos se piden a la API al entrar y al volver a la pestaña. La barra superior indica
+siempre de dónde vienen: «Base de datos · N titulados» o, en naranja y con «Reintentar», «Respaldo
+Excel (sin conexión)». El Excel de `public/data/` se usa solo si la API no responde o falla (5xx);
+si la sesión venció (401) se vuelve al login.
 
 ## Requisitos
 
@@ -93,9 +101,8 @@ avisa que no se guardaron.
    npm run db:verificar
    ```
 
-6. **Crear el primer administrador.** La web no trae cuentas ni contraseñas predefinidas, y el
-   formulario «Crear cuenta» siempre crea usuarios normales. El primer administrador se crea desde
-   la consola:
+6. **Crear el primer administrador.** La web no trae cuentas ni contraseñas predefinidas ni permite
+   registrarse. Los administradores se crean desde la consola:
 
    ```bash
    npm run crear-admin -- --ci 1234567 --nombre "Nombre Apellido"
@@ -143,31 +150,38 @@ npm run test:e2e   # pruebas de extremo a extremo (Playwright)
 - `npm run test` corre las pruebas de Vitest. Las de la API (`server/auth.test.ts`) usan la base de
   `.env`: crean usuarios de prueba (CI que empiezan con 95) y los borran al terminar. Si no hay
   base, se omiten con un aviso.
-- `npm run test:e2e` corre `tests/arcusur.spec.ts` con Playwright. Levanta la API en el puerto 4000
-  y el frontend en el 3100 (o reutiliza los que ya estén en marcha) y usa usuarios de prueba (CI
-  94…) que se borran al terminar. La primera vez instale el navegador con
-  `npx playwright install chromium`.
+- `npm run test:e2e` corre `tests/arcusur.spec.ts` con Playwright. Levanta su propia API en el
+  puerto 4100 (con un límite alto de envíos de encuestas) y el frontend en el 3100 apuntando a ella
+  (o reutiliza los que ya estén en marcha), y usa usuarios de prueba (CI 94…) y encuestas que se
+  borran al terminar. La primera vez instale el navegador con `npx playwright install chromium`.
 
 ## API
 
 | Método | Ruta | Acceso | Descripción |
 |---|---|---|---|
 | GET | `/api/health` | Público | Estado de la API y de la conexión a la base (`503` si la base no responde) |
-| POST | `/api/auth/registro` | Público | Crea una cuenta con rol `usuario` e inicia sesión (`201`, `400` con `{ errores }`, `409` si el CI ya existe) |
-| POST | `/api/auth/login` | Público | Inicia sesión con `{ ci, password }` (`401` «CI o contraseña incorrectos», `429` tras 5 intentos fallidos) |
+| POST | `/api/publico/titulados` | Público | Encuesta de titulado sin cuenta (`201`, o `400` con `{ errores }` por campo; `429` tras 10 envíos por IP en una hora) |
+| POST | `/api/publico/empleadores` | Público | Encuesta de empleador sin cuenta (mismas reglas y límite) |
+| POST | `/api/auth/login` | Público | Inicia sesión con `{ ci, password }`, solo administradores (`401` «CI o contraseña incorrectos», `403` «No tiene permisos de administrador», `429` tras 5 intentos fallidos) |
 | POST | `/api/auth/logout` | Público | Cierra la sesión |
 | GET | `/api/auth/yo` | Sesión | Usuario actual (sin el hash de la contraseña) |
-| GET | `/api/titulados` | Sesión | Lista de titulados |
-| POST | `/api/titulados` | Sesión | Registra una encuesta de titulado (`201`, o `400` con `{ errores }` por campo) |
-| GET | `/api/empleadores` | Sesión | Lista de empleadores |
-| POST | `/api/empleadores` | Sesión | Registra una encuesta de empleador (`201`, o `400` con `{ errores }` por campo) |
-| GET | `/api/items-empleadores` | Sesión | Textos de las 18 afirmaciones de empleadores |
+| GET | `/api/titulados` | Admin | Lista de titulados |
+| POST | `/api/titulados` | Admin | Registra una encuesta de titulado desde el panel |
+| GET | `/api/empleadores` | Admin | Lista de empleadores |
+| POST | `/api/empleadores` | Admin | Registra una encuesta de empleador desde el panel |
+| GET | `/api/items-empleadores` | Admin | Textos de las 18 afirmaciones de empleadores |
 | GET | `/api/admin/usuarios` | Admin | Usuarios, con `?buscar=` (nombre o CI), `?pagina=` y `?por_pagina=` (hasta 100) |
 | PATCH | `/api/admin/usuarios/:id` | Admin | Cambia `{ activo, rol }`. Un administrador no puede desactivarse ni quitarse el rol |
 | DELETE | `/api/admin/usuarios/:id` | Admin | Elimina una cuenta y sus sesiones (no la propia) |
 | GET | `/api/admin/resumen` | Admin | Totales de usuarios y encuestas (base oficial vs. formularios) y registros de los últimos 7 días |
 
-Sin sesión, las rutas protegidas responden `401`; las de administración con un usuario normal, `403`.
+Sin sesión, las rutas protegidas responden `401`; con la sesión de una cuenta que perdió el rol de
+administrador, `403`.
+
+Las encuestas públicas llevan un campo trampa oculto (`sitio_web`): si llega lleno, la API responde
+como si hubiera guardado, pero no guarda nada. El límite de 10 envíos por IP y por hora (variable
+`LIMITE_ENCUESTAS_POR_HORA`) cuenta cada encuesta por separado y vive en la memoria del proceso;
+tenga en cuenta que detrás de un NAT (una sala de computadoras, por ejemplo) todos comparten la IP.
 
 Los POST reciben el mismo borrador que arma el formulario. El servidor comprueba que cada valor
 pertenezca a su catálogo y luego aplica las mismas reglas del formulario
@@ -199,8 +213,8 @@ columna salen de constantes del código y se validan antes de usarse. Las petici
 - **Login:** el mensaje de error es siempre «CI o contraseña incorrectos», exista o no el CI, y la
   respuesta tarda lo mismo en ambos casos. Tras 5 intentos fallidos con el mismo CI desde la misma IP
   hay que esperar 15 minutos (el contador vive en la memoria del proceso de la API).
-- **Roles:** `usuario` ve toda la web actual; `admin` además ve la sección **Administración**. Un
-  usuario normal que abre `#admin` ve «No tiene permisos…» y vuelve a la portada.
+- **Roles:** solo `admin` entra al panel. La tabla `usuarios` conserva el rol `usuario` (por ejemplo,
+  para quitarle el acceso a un administrador desde **Administración → Usuarios** sin borrarlo).
 
 ## Stack
 
@@ -210,7 +224,8 @@ React 19 · TypeScript (modo `strict`) · Vite · Tailwind CSS · lucide-react �
 
 | Carpeta | Contenido |
 |---|---|
-| `src/components/` | Pestañas de la interfaz (análisis HU1–HU5, simulación, encuestas, plan estratégico), pantalla de acceso y `admin/` (panel de control, usuarios, dashboard) |
+| `src/components/` | Panel de análisis (`Panel.tsx`) y sus pestañas (HU1–HU5, simulación, base de datos, plan estratégico), formularios de encuesta, `publico/` (portada, encuestas públicas y acceso de administrador) y `admin/` (panel de control, usuarios, dashboard) |
+| `src/rutas.ts` | Rutas de la web en el hash de la URL (portada, encuestas, login y panel) |
 | `src/utils/` | Estadística, simulación, importación de datos, validación (encuestas y cuentas) y cliente de la API (`api.ts`) |
 | `src/data/` | Catálogos, afirmaciones de empleadores, diccionario de datos y plan estratégico |
 | `src/types/` | Tipos de datos de titulados y empleadores |

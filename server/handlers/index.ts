@@ -7,21 +7,25 @@
  */
 
 import { actualizarUsuario, eliminarUsuario, listarUsuarios, resumen } from './admin';
-import { login, logout, registro, yo } from './auth';
+import { login, logout, yo } from './auth';
 import { crearEmpleador, listarEmpleadores, listarItemsEmpleadores } from './empleadores';
 import { health } from './health';
+import { crearEmpleadorPublico, crearTituladoPublico } from './publico';
 import { crearTitulado, listarTitulados } from './titulados';
 import type { ManejadoresRuta } from './tipos';
 
 export const RUTAS: Record<string, ManejadoresRuta> = {
   '/api/health': { acceso: 'publico', GET: health },
-  '/api/auth/registro': { acceso: 'publico', POST: registro },
+  // Encuestas de la portada pública: sin cuenta, con límite por IP y campo trampa
+  '/api/publico/titulados': { acceso: 'publico', POST: crearTituladoPublico },
+  '/api/publico/empleadores': { acceso: 'publico', POST: crearEmpleadorPublico },
   '/api/auth/login': { acceso: 'publico', POST: login },
   '/api/auth/logout': { acceso: 'publico', POST: logout },
   '/api/auth/yo': { acceso: 'sesion', GET: yo },
-  '/api/titulados': { acceso: 'sesion', GET: listarTitulados, POST: crearTitulado },
-  '/api/empleadores': { acceso: 'sesion', GET: listarEmpleadores, POST: crearEmpleador },
-  '/api/items-empleadores': { acceso: 'sesion', GET: listarItemsEmpleadores },
+  // Los datos son del panel de análisis, que solo usan los administradores
+  '/api/titulados': { acceso: 'admin', GET: listarTitulados, POST: crearTitulado },
+  '/api/empleadores': { acceso: 'admin', GET: listarEmpleadores, POST: crearEmpleador },
+  '/api/items-empleadores': { acceso: 'admin', GET: listarItemsEmpleadores },
   '/api/admin/usuarios': { acceso: 'admin', GET: listarUsuarios },
   '/api/admin/usuarios/:id': { acceso: 'admin', PATCH: actualizarUsuario, DELETE: eliminarUsuario },
   '/api/admin/resumen': { acceso: 'admin', GET: resumen }

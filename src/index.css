@@ -10,6 +10,8 @@
   --color-institucional-fondo: #EEF3F8;
   --color-resalte: #C8641E;
   --color-resalte-fondo: #FBF1E9;
+  /* Resalte oscurecido para texto y botones con texto blanco (contraste AA) */
+  --color-resalte-oscuro: #9A4A12;
 }
 
 body {

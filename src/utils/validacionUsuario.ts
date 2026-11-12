@@ -24,12 +24,6 @@ export interface Usuario {
   ultimo_acceso: string | null;
 }
 
-export interface DatosRegistro {
-  nombre_completo: string;
-  ci: string;
-  password: string;
-}
-
 /** Quita los espacios de los extremos y deja uno solo entre palabras. */
 export const normalizarNombre = (nombre: string) => nombre.trim().replace(/\s+/g, ' ');
 
@@ -70,27 +64,6 @@ export function errorPassword(password: string): string | undefined {
 }
 
 const texto = (valor: unknown) => (typeof valor === 'string' ? valor : '');
-
-/** Valida el formulario "Crear cuenta". Devuelve los datos normalizados si no hay errores. */
-export function validarRegistro(entrada: unknown): { errores: Errores; datos?: DatosRegistro } {
-  const e = (typeof entrada === 'object' && entrada !== null ? entrada : {}) as Record<string, unknown>;
-  const nombre = texto(e.nombre_completo);
-  const ci = texto(e.ci);
-  const password = texto(e.password);
-  const errores: Errores = {};
-
-  const enNombre = errorNombre(nombre);
-  if (enNombre) errores.nombre_completo = enNombre;
-  const enCi = errorCi(ci);
-  if (enCi) errores.ci = enCi;
-  const enPassword = errorPassword(password);
-  if (enPassword) errores.password = enPassword;
-  if (texto(e.confirmacion) === '') errores.confirmacion = 'Repita la contraseña';
-  else if (e.confirmacion !== password) errores.confirmacion = 'Las contraseñas no coinciden';
-
-  if (Object.keys(errores).length > 0) return { errores };
-  return { errores, datos: { nombre_completo: normalizarNombre(nombre), ci: normalizarCi(ci)!, password } };
-}
 
 /**
  * Valida el formulario "Iniciar sesión": solo exige que ambos campos estén completos.

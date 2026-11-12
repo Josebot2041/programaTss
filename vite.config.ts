@@ -19,9 +19,9 @@ export default defineConfig(() => {
       hmr: process.env.DISABLE_HMR !== 'true',
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
-      // La API (server/) corre en el puerto 4000 durante el desarrollo.
+      // La API (server/) corre en el puerto 4000 durante el desarrollo (API_PUERTO para otro, p. ej. en las pruebas e2e).
       proxy: {
-        '/api': 'http://localhost:4000',
+        '/api': `http://localhost:${process.env.API_PUERTO ?? 4000}`,
       },
     },
     test: {
