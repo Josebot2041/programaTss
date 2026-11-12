@@ -6,7 +6,7 @@
  */
 
 import type { Empleador, ItemEmpleador, Titulado } from '../types';
-import type { Rol } from '../data/catalogos';
+import type { ModoImportacion, Rol } from '../data/catalogos';
 import { CAMPO_TRAMPA, type BorradorEmpleador, type BorradorTitulado, type Errores } from './validacion';
 import type { Usuario } from './validacionUsuario';
 
@@ -43,18 +43,23 @@ export function avisarAlPerderSesion(fn: (() => void) | undefined) {
   alPerderSesion = fn;
 }
 
-/** Petición JSON a /api/<ruta>. Lanza ErrorApi si no hay conexión o la respuesta no es 2xx. */
-async function pedir<T>(metodo: string, ruta: string, cuerpo?: unknown): Promise<T> {
+/**
+ * Petición a /api/<ruta> con cuerpo JSON (o FormData, para subir archivos). Lanza ErrorApi si no
+ * hay conexión o la respuesta no es 2xx.
+ */
+async function pedir<T>(metodo: string, ruta: string, cuerpo?: unknown, espera = ESPERA_MS): Promise<T> {
   let respuesta: Response;
+  const esFormulario = cuerpo instanceof FormData;
   try {
     respuesta = await fetch(`/api/${ruta}`, {
       method: metodo,
-      headers: cuerpo === undefined ? undefined : { 'Content-Type': 'application/json' },
-      body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo),
+      // Con FormData el navegador pone el Content-Type multipart con su separador
+      headers: cuerpo === undefined || esFormulario ? undefined : { 'Content-Type': 'application/json' },
+      body: cuerpo === undefined ? undefined : esFormulario ? cuerpo : JSON.stringify(cuerpo),
       credentials: 'same-origin',
       // Siempre datos frescos de la base, nunca una copia guardada por el navegador
       cache: 'no-store',
-      signal: AbortSignal.timeout(ESPERA_MS)
+      signal: AbortSignal.timeout(espera)
     });
   } catch {
     throw new ErrorApi(0, 'No se pudo conectar con el servidor.');
@@ -164,3 +169,70 @@ export const actualizarUsuario = (id: number, cambios: { activo?: boolean; rol?:
   pedir<Usuario>('PATCH', `admin/usuarios/${id}`, cambios);
 
 export const eliminarUsuario = (id: number) => pedir<{ ok: true; id: number }>('DELETE', `admin/usuarios/${id}`);
+
+// ---------------------------------------------------------------------------
+// Importación de archivos (Base de datos → Importar)
+// ---------------------------------------------------------------------------
+
+/** Subir y procesar un archivo de hasta 10 MB puede tardar más que una petición común. */
+const ESPERA_IMPORTACION_MS = 60_000;
+
+export type FormatoImportacion = 'base_limpia' | 'titulados_crudo' | 'empleadores_crudo';
+export type EstadoImportado = 'nuevo' | 'sin_cambios' | 'cambia' | 'protegido';
+
+export interface TotalesImportacion {
+  insertados: number;
+  actualizados: number;
+  omitidos: number;
+  eliminados: number;
+}
+
+export interface ProblemaArchivo {
+  hoja: string;
+  fila?: number;
+  id?: string;
+  columna?: string;
+  valor?: string;
+  mensaje: string;
+  severidad: 'error' | 'advertencia';
+}
+
+export interface PrevisualizacionImportacion {
+  token: string;
+  vence: string;
+  archivo: string;
+  formato: FormatoImportacion;
+  cantidades: { titulados: number; empleadores: number; items: number };
+  estados: Record<'titulados' | 'empleadores', Record<EstadoImportado, number>>;
+  porModo: Record<ModoImportacion, TotalesImportacion>;
+  problemas: ProblemaArchivo[];
+  totalProblemas: number;
+  muestra: {
+    titulados: Array<{ estado: EstadoImportado; registro: Titulado }>;
+    empleadores: Array<{ estado: EstadoImportado; registro: Empleador }>;
+  };
+  /** Registros interpretados, para «Solo analizar sin guardar». */
+  datos: DatosApi;
+}
+
+export interface Importacion extends TotalesImportacion {
+  id: number;
+  archivo: string;
+  modo: ModoImportacion;
+  created_at: string;
+  /** Nombre de quien importó (null si su cuenta se eliminó). */
+  usuario?: string | null;
+}
+
+/** Sube el archivo y devuelve lo que pasaría al guardarlo; no guarda nada. */
+export function previsualizarImportacion(archivo: File): Promise<PrevisualizacionImportacion> {
+  const formulario = new FormData();
+  formulario.append('archivo', archivo, archivo.name);
+  return pedir<PrevisualizacionImportacion>('POST', 'admin/importar/previsualizar', formulario, ESPERA_IMPORTACION_MS);
+}
+
+export const confirmarImportacion = (token: string, modo: ModoImportacion) =>
+  pedir<Importacion>('POST', 'admin/importar/confirmar', { token, modo }, ESPERA_IMPORTACION_MS);
+
+export const listarImportaciones = () => pedir<Importacion[]>('GET', 'admin/importaciones');
+

@@ -41,7 +41,7 @@ function IndicadorFuente({
     fuente === 'excel'
       ? ['Respaldo Excel (sin conexión)', 'Respaldo Excel']
       : fuente === 'archivo'
-        ? [`Archivo importado · ${tituladosCount} titulados`, 'Archivo']
+        ? [`Vista temporal sin guardar · ${tituladosCount} titulados`, 'Sin guardar']
         : [`Base de datos · ${tituladosCount} titulados${alDia ? '' : ' (sin actualizar)'}`, `${tituladosCount}`];
 
   return (
@@ -64,7 +64,16 @@ function IndicadorFuente({
       </span>
       {aviso && onReintentar && (
         <button onClick={onReintentar} disabled={recargando} className="text-institucional hover:underline disabled:opacity-60 disabled:no-underline">
-          {recargando ? 'Reintentando…' : fuente === 'archivo' ? 'Volver a la base' : 'Reintentar'}
+          {recargando ? (
+            'Reintentando…'
+          ) : fuente === 'archivo' ? (
+            <>
+              <span className="hidden sm:inline">Volver a la base de datos</span>
+              <span className="sm:hidden">Volver</span>
+            </>
+          ) : (
+            'Reintentar'
+          )}
         </button>
       )}
     </div>

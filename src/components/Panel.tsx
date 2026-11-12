@@ -4,7 +4,7 @@
  */
 
 import React, { lazy, Suspense, useCallback, useEffect, useState } from 'react';
-import { AlertCircle, CloudOff, Loader2, RotateCcw } from 'lucide-react';
+import { AlertCircle, CloudOff, FileSpreadsheet, Loader2, RotateCcw } from 'lucide-react';
 import type { Empleador, ItemEmpleador, Titulado } from '../types';
 import { cargarBaseReal, NOMBRE_BASE_REAL, type ProblemaImportacion } from '../utils/importador';
 import { cargarDesdeApi, ErrorApi, esFallaDelServidor } from '../utils/api';
@@ -213,6 +213,20 @@ export function Panel({ usuario, seccion, informeInicial = false, onSeccion, onS
               </span>
             </p>
           )}
+          {fuente === 'archivo' && (
+            <div
+              role="status"
+              className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-l-4 border-resalte bg-resalte-fondo px-3 py-2 text-sm text-slate-800 print:hidden"
+            >
+              <span className="flex items-start gap-1.5">
+                <FileSpreadsheet className="w-4 h-4 mt-0.5 shrink-0 text-resalte" aria-hidden="true" />
+                Vista temporal: estos datos NO están guardados en la base de datos. Los análisis usan el archivo importado.
+              </span>
+              <button onClick={() => void cargarBase(true)} className="text-institucional hover:underline whitespace-nowrap self-start sm:self-auto">
+                Volver a la base de datos
+              </button>
+            </div>
+          )}
           <Suspense fallback={<p className="text-sm text-slate-500">Cargando…</p>}>
             {seccion === 'overview' && <TabOverview titulados={titulados} empleadores={empleadores} onNavigate={irA} />}
 
@@ -239,10 +253,14 @@ export function Panel({ usuario, seccion, informeInicial = false, onSeccion, onS
                   setEmpleadores(nuevos);
                   setFuente('archivo');
                 }}
-                onSetItems={(nuevosItems: ItemEmpleador[]) => setItemsEmpleadores(nuevosItems)}
+                onSetItems={(nuevosItems: ItemEmpleador[]) => {
+                  setItemsEmpleadores(nuevosItems);
+                  setFuente('archivo');
+                }}
                 itemsCount={itemsEmpleadores.length}
                 problemasBase={problemasBase}
-                onResetToOfficial={() => void cargarBase()}
+                vistaTemporal={fuente === 'archivo'}
+                onRecargar={() => cargarBase(true)}
               />
             )}
 

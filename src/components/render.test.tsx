@@ -65,7 +65,8 @@ const pantallas: Array<[string, React.ReactElement]> = [
       onSetTitulados={nada}
       onSetEmpleadores={nada}
       onSetItems={nada}
-      onResetToOfficial={nada}
+      vistaTemporal={false}
+      onRecargar={async () => true}
       onNavigate={nada}
     />
   ],
