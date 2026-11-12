@@ -33,7 +33,8 @@ import {
 import type { Empleador, ItemEmpleador, Titulado } from '../src/types';
 import { COLUMNAS_EMPLEADORES, COLUMNAS_TITULADOS } from '../src/utils/importador';
 
-export type Origen = 'base_oficial' | 'formulario';
+/** base_oficial: db:seed · formulario: encuestas de la web · importacion: Base de datos → Importar. */
+export type Origen = 'base_oficial' | 'formulario' | 'importacion';
 export type Tabla = 'titulados' | 'empleadores';
 
 /**
@@ -198,6 +199,8 @@ export interface DatosInsercion {
   id?: number;
   /** Fecha de creación a conservar al recargar un registro. */
   creado?: Date;
+  /** Importación que lo guardó (solo con origen 'importacion'). */
+  importacionId?: number;
 }
 
 type Registro = Record<string, unknown>;
@@ -218,6 +221,10 @@ async function insertarFila(db: pg.ClientBase, tabla: Tabla, ids: Ids, r: Regist
   if (datos.creado) {
     nombres.push('created_at');
     valores.push(datos.creado);
+  }
+  if (datos.importacionId !== undefined) {
+    nombres.push('importacion_id');
+    valores.push(datos.importacionId);
   }
   const { rows } = await db.query<{ id: number }>(
     `INSERT INTO ${identificador(tabla)} (${nombres.map(identificador).join(', ')})

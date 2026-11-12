@@ -97,12 +97,14 @@ export async function resumen(): Promise<Respuesta> {
      FROM usuarios`
   );
   const porOrigen = async (tabla: 'titulados' | 'empleadores') => {
-    const { rows } = await pool.query<{ base_oficial: number; formulario: number }>(
-      `SELECT count(*) FILTER (WHERE origen = 'base_oficial')::int AS base_oficial,
-              count(*) FILTER (WHERE origen = 'formulario')::int AS formulario
+    const { rows } = await pool.query<{ total: number; base_oficial: number; formulario: number; importacion: number }>(
+      `SELECT count(*)::int AS total,
+              count(*) FILTER (WHERE origen = 'base_oficial')::int AS base_oficial,
+              count(*) FILTER (WHERE origen = 'formulario')::int AS formulario,
+              count(*) FILTER (WHERE origen = 'importacion')::int AS importacion
        FROM ${tabla}`
     );
-    return { total: rows[0].base_oficial + rows[0].formulario, ...rows[0] };
+    return rows[0];
   };
   const { rows: porDia } = await pool.query<{ fecha: string; titulados: number; empleadores: number; usuarios: number }>(
     `WITH dias AS (

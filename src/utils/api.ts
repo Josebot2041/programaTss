@@ -127,6 +127,8 @@ export interface ConteoOrigen {
   total: number;
   base_oficial: number;
   formulario: number;
+  /** Guardados desde Base de datos → Importar. */
+  importacion: number;
 }
 
 export interface RegistrosDia {

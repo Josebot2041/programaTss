@@ -10,6 +10,7 @@ import { actualizarUsuario, eliminarUsuario, listarUsuarios, resumen } from './a
 import { login, logout, yo } from './auth';
 import { crearEmpleador, listarEmpleadores, listarItemsEmpleadores } from './empleadores';
 import { health } from './health';
+import { confirmarImportacion, listarImportaciones, previsualizarImportacion } from './importacion';
 import { crearEmpleadorPublico, crearTituladoPublico } from './publico';
 import { crearTitulado, listarTitulados } from './titulados';
 import type { ManejadoresRuta } from './tipos';
@@ -28,7 +29,11 @@ export const RUTAS: Record<string, ManejadoresRuta> = {
   '/api/items-empleadores': { acceso: 'admin', GET: listarItemsEmpleadores },
   '/api/admin/usuarios': { acceso: 'admin', GET: listarUsuarios },
   '/api/admin/usuarios/:id': { acceso: 'admin', PATCH: actualizarUsuario, DELETE: eliminarUsuario },
-  '/api/admin/resumen': { acceso: 'admin', GET: resumen }
+  '/api/admin/resumen': { acceso: 'admin', GET: resumen },
+  // Importación de archivos al panel: previsualizar (multipart, ver server/app.ts) y confirmar
+  '/api/admin/importar/previsualizar': { acceso: 'admin', POST: previsualizarImportacion },
+  '/api/admin/importar/confirmar': { acceso: 'admin', POST: confirmarImportacion },
+  '/api/admin/importaciones': { acceso: 'admin', GET: listarImportaciones }
 };
 
 export { despachar } from './tipos';

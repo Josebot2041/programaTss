@@ -15,6 +15,8 @@ export interface Peticion {
   query?: Record<string, string>;
   /** Usuario con sesión; lo completa requiereSesion en las rutas protegidas. */
   usuario?: Usuario;
+  /** Archivo subido (multipart, campo «archivo»), solo en las rutas que lo aceptan. */
+  archivo?: { nombre: string; datos: Buffer };
 }
 
 /**

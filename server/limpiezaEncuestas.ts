@@ -504,6 +504,18 @@ function limpiarEmpleador(r: unknown[], numero: number, correcciones: Correccion
 // Base completa
 // ---------------------------------------------------------------------------
 
+/** Empleadores de la base limpia anterior: conservan sus ids 1 a 51 (ver limpiarEmpleadores). */
+export const EMPLEADORES_ANTERIORES = 51;
+
+const coincideEncabezado = (encabezado: unknown[], esperados: Array<[number, string]>) =>
+  esperados.every(([col, fragmento]) => normalizarTexto(texto(encabezado[col])).includes(fragmento));
+
+/** ¿Es el encabezado del Excel crudo de Microsoft Forms (titulados)? */
+export const esCrudoTitulados = (encabezado: unknown[]) => coincideEncabezado(encabezado, ENCABEZADOS_T);
+
+/** ¿Es el encabezado del Excel crudo de Google Forms (empleadores)? */
+export const esCrudoEmpleadores = (encabezado: unknown[]) => coincideEncabezado(encabezado, ENCABEZADOS_E);
+
 function comprobarEncabezados(hoja: string, encabezado: unknown[], esperados: Array<[number, string]>) {
   for (const [col, fragmento] of esperados) {
     if (!normalizarTexto(texto(encabezado[col])).includes(fragmento)) {
@@ -512,30 +524,40 @@ function comprobarEncabezados(hoja: string, encabezado: unknown[], esperados: Ar
   }
 }
 
-/**
- * Limpia las filas crudas (con encabezado) de los dos formularios.
- *
- * Ids: los titulados conservan el Id de Microsoft Forms. Los empleadores de la base anterior
- * conservan su id (eran las primeras respuestas sin las de prueba, numeradas en orden); las
- * respuestas nuevas usan su número de respuesta en el formulario, así que nunca toman un id que
- * ya tenía otro empleador.
- */
-export function limpiarEncuestas(filasTitulados: unknown[][], filasEmpleadores: unknown[][], empleadoresAnteriores: number): BaseLimpia {
-  comprobarEncabezados('Titulados', filasTitulados[0] ?? [], ENCABEZADOS_T);
-  comprobarEncabezados('Empleadores', filasEmpleadores[0] ?? [], ENCABEZADOS_E);
+export interface ParteLimpia {
+  /** Filas con encabezado, en el orden de columnas del importador. */
+  filas: Celda[][];
+  correcciones: Correccion[];
+  descartes: Descarte[];
+}
 
+/** Limpia las filas crudas (con encabezado) del formulario de titulados. Conservan el Id de Microsoft Forms. */
+export function limpiarTitulados(filasTitulados: unknown[][]): ParteLimpia {
+  comprobarEncabezados('Titulados', filasTitulados[0] ?? [], ENCABEZADOS_T);
   const correcciones: Correccion[] = [];
   const descartes: Descarte[] = [];
-
-  const titulados: Celda[][] = [COLUMNAS_TITULADOS.map((c) => c.nombre)];
+  const filas: Celda[][] = [COLUMNAS_TITULADOS.map((c) => c.nombre)];
   for (const r of filasTitulados.slice(1)) {
     if (r.every((v) => texto(v) === '')) continue;
     const { celdas, descarte, id } = limpiarTitulado(r, correcciones);
     if (descarte) descartes.push({ hoja: 'Titulados', id, motivo: descarte });
-    else if (celdas) titulados.push(COLUMNAS_TITULADOS.map((c) => celdas[c.nombre] ?? ''));
+    else if (celdas) filas.push(COLUMNAS_TITULADOS.map((c) => celdas[c.nombre] ?? ''));
   }
+  return { filas, correcciones, descartes };
+}
 
-  const empleadores: Celda[][] = [COLUMNAS_EMPLEADORES.map((c) => c.nombre)];
+/**
+ * Limpia las filas crudas (con encabezado) del formulario de empleadores.
+ *
+ * Ids: los empleadores de la base anterior conservan su id (eran las primeras respuestas sin las
+ * de prueba, numeradas en orden); las respuestas nuevas usan su número de respuesta en el
+ * formulario, así que nunca toman un id que ya tenía otro empleador.
+ */
+export function limpiarEmpleadores(filasEmpleadores: unknown[][], empleadoresAnteriores = EMPLEADORES_ANTERIORES): ParteLimpia {
+  comprobarEncabezados('Empleadores', filasEmpleadores[0] ?? [], ENCABEZADOS_E);
+  const correcciones: Correccion[] = [];
+  const descartes: Descarte[] = [];
+  const filas: Celda[][] = [COLUMNAS_EMPLEADORES.map((c) => c.nombre)];
   let conservados = 0;
   filasEmpleadores.slice(1).forEach((r, i) => {
     if (r.every((v) => texto(v) === '')) return;
@@ -547,9 +569,23 @@ export function limpiarEncuestas(filasTitulados: unknown[][], filasEmpleadores: 
     }
     conservados++;
     celdas.id = String(conservados <= empleadoresAnteriores ? conservados : numero);
-    empleadores.push(COLUMNAS_EMPLEADORES.map((c) => celdas[c.nombre] ?? ''));
+    filas.push(COLUMNAS_EMPLEADORES.map((c) => celdas[c.nombre] ?? ''));
   });
+  return { filas, correcciones, descartes };
+}
 
-  const items: Celda[][] = [['codigo', 'afirmacion'], ...CODIGOS_ITEMS.map((codigo, i) => [codigo, AFIRMACIONES[i]])];
-  return { titulados, empleadores, items, correcciones, descartes };
+/** Hoja Items_empleadores con los textos cortos de las 18 afirmaciones. */
+export const filasItems = (): Celda[][] => [['codigo', 'afirmacion'], ...CODIGOS_ITEMS.map((codigo, i) => [codigo, AFIRMACIONES[i]])];
+
+/** Limpia los dos formularios (ver limpiarTitulados y limpiarEmpleadores). */
+export function limpiarEncuestas(filasTitulados: unknown[][], filasEmpleadores: unknown[][], empleadoresAnteriores = EMPLEADORES_ANTERIORES): BaseLimpia {
+  const t = limpiarTitulados(filasTitulados);
+  const e = limpiarEmpleadores(filasEmpleadores, empleadoresAnteriores);
+  return {
+    titulados: t.filas,
+    empleadores: e.filas,
+    items: filasItems(),
+    correcciones: [...t.correcciones, ...e.correcciones],
+    descartes: [...t.descartes, ...e.descartes]
+  };
 }

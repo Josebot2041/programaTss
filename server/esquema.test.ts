@@ -25,6 +25,7 @@ import {
   SATISFACCIONES_NEGOCIO,
   SI_NO,
   SITUACIONES_LABORALES,
+  MODOS_IMPORTACION,
   TAMANOS_EMPRESA,
   TIEMPOS_PRIMER_EMPLEO
 } from '../src/data/catalogos';
@@ -56,7 +57,8 @@ const DOMINIOS: Record<string, readonly string[]> = {
   posibilidad_contratacion: POSIBILIDADES_CONTRATACION,
   nivel_demandado: NIVELES_DEMANDADOS,
   medio_convocatoria: MEDIOS_CONVOCATORIA,
-  rol: ROLES
+  rol: ROLES,
+  modo: MODOS_IMPORTACION
 };
 
 /** Valores de cada CHECK (columna IN ('a', 'b', …)) del esquema, por columna. */

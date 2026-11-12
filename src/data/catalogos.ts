@@ -329,6 +329,10 @@ export function segmentoDe(anios: number | undefined): Segmento | undefined {
 export const ROLES = ['usuario', 'admin'] as const;
 export type Rol = (typeof ROLES)[number];
 
+/** Modos de guardar un archivo importado (Base de datos → Importar). */
+export const MODOS_IMPORTACION = ['agregar', 'actualizar', 'reemplazar_oficial'] as const;
+export type ModoImportacion = (typeof MODOS_IMPORTACION)[number];
+
 /** Extensiones departamentales del CI boliviano (opcionales: "1234567 LP"). */
 export const EXTENSIONES_CI = ['LP', 'CB', 'SC', 'OR', 'PT', 'CH', 'TJ', 'BE', 'PD'] as const;
 export type ExtensionCi = (typeof EXTENSIONES_CI)[number];

@@ -495,6 +495,13 @@ function importarLibro(xlsx: ModuloXLSX, wb: XLSX.WorkBook): ResultadoImportacio
   return resultado;
 }
 
+/** Hojas de un archivo .xlsx o .csv como filas de celdas (un CSV es una sola hoja). */
+export async function leerHojas(datos: ArrayBuffer, nombreArchivo: string): Promise<Array<{ nombre: string; filas: unknown[][] }>> {
+  const xlsx = await obtenerXLSX();
+  const wb = leerLibro(xlsx, datos, nombreArchivo);
+  return wb.SheetNames.map((nombre) => ({ nombre, filas: filasDe(xlsx, wb.Sheets[nombre]) }));
+}
+
 /** Importa un archivo .xlsx (libro completo) o .csv (una hoja). */
 export async function importarArchivo(datos: ArrayBuffer, nombreArchivo: string): Promise<ResultadoImportacion> {
   const xlsx = await obtenerXLSX();

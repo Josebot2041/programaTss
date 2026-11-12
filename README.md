@@ -173,7 +173,10 @@ npm run test:e2e   # pruebas de extremo a extremo (Playwright)
 | GET | `/api/admin/usuarios` | Admin | Usuarios, con `?buscar=` (nombre o CI), `?pagina=` y `?por_pagina=` (hasta 100) |
 | PATCH | `/api/admin/usuarios/:id` | Admin | Cambia `{ activo, rol }`. Un administrador no puede desactivarse ni quitarse el rol |
 | DELETE | `/api/admin/usuarios/:id` | Admin | Elimina una cuenta y sus sesiones (no la propia) |
-| GET | `/api/admin/resumen` | Admin | Totales de usuarios y encuestas (base oficial vs. formularios) y registros de los últimos 7 días |
+| GET | `/api/admin/resumen` | Admin | Totales de usuarios y encuestas (base oficial, formularios e importaciones) y registros de los últimos 7 días |
+| POST | `/api/admin/importar/previsualizar` | Admin | Recibe un archivo (multipart, campo `archivo`, `.xlsx` o `.csv`, hasta 10 MB) y lo compara con la base **sin guardar nada**: cantidades, registros nuevos / sin cambios / que cambiarían / protegidos, problemas por fila, primeras 10 filas y un `token` vigente 15 minutos |
+| POST | `/api/admin/importar/confirmar` | Admin | Guarda una previsualización con `{ token, modo }` en una sola transacción |
+| GET | `/api/admin/importaciones` | Admin | Historial de importaciones (fecha, usuario, archivo, modo y cantidades) |
 
 Sin sesión, las rutas protegidas responden `401`; con la sesión de una cuenta que perdió el rol de
 administrador, `403`.
@@ -183,7 +186,24 @@ como si hubiera guardado, pero no guarda nada. El límite de 10 envíos por IP y
 `LIMITE_ENCUESTAS_POR_HORA`) cuenta cada encuesta por separado y vive en la memoria del proceso;
 tenga en cuenta que detrás de un NAT (una sala de computadoras, por ejemplo) todos comparten la IP.
 
-Los POST reciben el mismo borrador que arma el formulario. El servidor comprueba que cada valor
+**Importación de archivos** (Base de datos → Importar). Acepta la base limpia (hojas Titulados,
+Empleadores e Items_empleadores, o un CSV con sus columnas) y los Excel **crudos** de los formularios
+oficiales (Microsoft Forms de titulados y Google Forms de empleadores), que reconoce por sus columnas
+y limpia con las mismas reglas que `npm run cargar-encuestas`. Los registros se comparan por Id:
+
+| Modo | Qué hace |
+|---|---|
+| `agregar` | Solo inserta los Ids nuevos; no toca los existentes |
+| `actualizar` | Inserta los nuevos y reemplaza los existentes que cambian (con el mismo Id y fecha de creación) |
+| `reemplazar_oficial` | Como `actualizar` y, además, quita los registros `base_oficial` que no están en el archivo (solo de las tablas que el archivo trae) |
+
+En ningún modo se modifican ni se borran las encuestas guardadas desde la web (`origen = 'formulario'`):
+si un Id del archivo es de una de ellas, se omite. Lo guardado lleva `origen = 'importacion'` y
+apunta a su fila de `importaciones` (quién importó, cuándo, el archivo y el modo). Si algo falla a
+mitad de camino, la transacción se deshace y no se guarda nada. La subida del archivo es la única
+ruta con un límite mayor (10 MB, con multer); el JSON de las demás sigue limitado a 100 KB.
+
+Los POST de encuestas reciben el mismo borrador que arma el formulario. El servidor comprueba que cada valor
 pertenezca a su catálogo y luego aplica las mismas reglas del formulario
 (`src/utils/validacion.ts`). Cada encuesta se guarda en una transacción junto con sus selecciones
 múltiples y respuestas, con su `origen` (`base_oficial` o `formulario`) y su fecha de creación

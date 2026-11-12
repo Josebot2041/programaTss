@@ -1,12 +1,16 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Loader2, RotateCcw } from 'lucide-react';
-import { ErrorApi, obtenerResumen, type ResumenAdmin } from '../../utils/api';
+import { ErrorApi, obtenerResumen, type ConteoOrigen, type ResumenAdmin } from '../../utils/api';
 import { RegistrosPorDia } from '../graficos/RegistrosPorDia';
 import { EncabezadoPagina, FilaKpi, Kpi, Nota, Panel } from '../ui/Estructura';
 
 const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
 
 /** Panel de control de Administración: totales de /api/admin/resumen y registros por día. */
+/** «184 de la base oficial · 2 por formulario» y, si hay, «· 5 importados». */
+const origenes = (c: ConteoOrigen) =>
+  [`${c.base_oficial} de la base oficial`, `${c.formulario} por formulario`, ...(c.importacion > 0 ? [`${c.importacion} importados`] : [])].join(' · ');
+
 export function PanelControl() {
   const [resumen, setResumen] = useState<ResumenAdmin>();
   const [error, setError] = useState('');
@@ -61,12 +65,12 @@ export function PanelControl() {
             <Kpi
               etiqueta="Titulados"
               valor={String(resumen.titulados.total)}
-              contexto={`${resumen.titulados.base_oficial} de la base oficial · ${resumen.titulados.formulario} por formulario`}
+              contexto={origenes(resumen.titulados)}
             />
             <Kpi
               etiqueta="Empleadores"
               valor={String(resumen.empleadores.total)}
-              contexto={`${resumen.empleadores.base_oficial} de la base oficial · ${resumen.empleadores.formulario} por formulario`}
+              contexto={origenes(resumen.empleadores)}
             />
             <Kpi
               etiqueta="Últimos 7 días"

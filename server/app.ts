@@ -1,10 +1,12 @@
 /**
  * Aplicación Express de la API (/api/*). Solo adapta los manejadores de server/handlers,
  * que no dependen de Express (se pueden reutilizar como funciones serverless de Vercel).
- * Aquí se agregan lo propio de HTTP: sesión, control de acceso y límite de intentos.
+ * Aquí se agregan lo propio de HTTP: sesión, control de acceso, límites de intentos y la subida
+ * de archivos para importar.
  */
 
 import express from 'express';
+import multer from 'multer';
 import { RUTAS, type Acceso, type Manejador } from './handlers';
 import type { Metodo } from './handlers/tipos';
 import {
@@ -35,7 +37,8 @@ function adaptar(manejador: Manejador): express.RequestHandler {
       body: req.body,
       params: req.params as Record<string, string>,
       query: parametros(req.query),
-      usuario: res.locals.usuario
+      usuario: res.locals.usuario,
+      archivo: req.file ? { nombre: req.file.originalname, datos: req.file.buffer } : undefined
     });
     if (sesion === 'cerrar') await cerrarSesion(req, res);
     else if (sesion) await iniciarSesion(req, sesion.usuarioId);
@@ -50,6 +53,38 @@ const CONTROL_ACCESO: Record<Acceso, express.RequestHandler[]> = {
 };
 
 const METODOS: Record<Metodo, 'get' | 'post' | 'patch' | 'delete'> = { GET: 'get', POST: 'post', PATCH: 'patch', DELETE: 'delete' };
+
+export const MAX_ARCHIVO_IMPORTACION = 10 * 1024 * 1024;
+
+/** Error de la subida que se informa al cliente con su estado. */
+class ErrorSubida extends Error {
+  constructor(
+    readonly status: number,
+    mensaje: string
+  ) {
+    super(mensaje);
+  }
+}
+
+/**
+ * Archivo de una importación (multipart, campo «archivo»): hasta 10 MB, solo .xlsx o .csv, en
+ * memoria (no se escribe en disco). Va después del control de acceso: solo un administrador
+ * puede subir archivos. Es la única ruta con un límite mayor a los 100 KB del JSON.
+ */
+const recibirArchivo = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_ARCHIVO_IMPORTACION, files: 1, fields: 5 },
+  defParamCharset: 'utf8', // nombres de archivo con tildes
+  fileFilter: (_req, archivo, aceptar) => {
+    if (/\.(xlsx|csv)$/i.test(archivo.originalname)) aceptar(null, true);
+    else aceptar(new ErrorSubida(400, 'Solo se aceptan archivos .xlsx o .csv.'));
+  }
+}).single('archivo');
+
+/** Middlewares propios de una ruta, después del control de acceso. */
+const PREVIOS: Record<string, express.RequestHandler[]> = {
+  '/api/admin/importar/previsualizar': [recibirArchivo]
+};
 
 export function crearApp() {
   const app = express();
@@ -70,7 +105,7 @@ export function crearApp() {
 
   for (const [ruta, { acceso, ...manejadores }] of Object.entries(RUTAS)) {
     for (const [metodo, manejador] of Object.entries(manejadores) as Array<[Metodo, Manejador]>) {
-      app[METODOS[metodo]](ruta, ...CONTROL_ACCESO[acceso], adaptar(manejador));
+      app[METODOS[metodo]](ruta, ...CONTROL_ACCESO[acceso], ...(PREVIOS[ruta] ?? []), adaptar(manejador));
     }
   }
 
@@ -80,6 +115,15 @@ export function crearApp() {
 
   // Errores no controlados (base caída, JSON mal formado…): sin detalles internos al cliente.
   app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    if (err instanceof ErrorSubida) {
+      res.status(err.status).json({ error: err.message });
+      return;
+    }
+    if (err instanceof multer.MulterError) {
+      const mensaje = err.code === 'LIMIT_FILE_SIZE' ? 'El archivo supera el máximo de 10 MB.' : `No se pudo recibir el archivo (${err.code}).`;
+      res.status(err.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({ error: mensaje });
+      return;
+    }
     const estado = (err as { status?: number }).status;
     if (estado === 400) {
       res.status(400).json({ errores: { cuerpo: 'JSON mal formado' } });

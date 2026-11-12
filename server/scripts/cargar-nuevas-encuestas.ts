@@ -13,7 +13,7 @@ import { readFile, rm, writeFile } from 'node:fs/promises';
 import { isDeepStrictEqual } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import * as XLSX from 'xlsx';
-import { limpiarEncuestas, type BaseLimpia, type Correccion } from '../limpiezaEncuestas';
+import { EMPLEADORES_ANTERIORES, limpiarEncuestas, type BaseLimpia, type Correccion } from '../limpiezaEncuestas';
 import { ARCHIVOS_BASE_REAL, importarArchivo, NOMBRE_BASE_REAL, type ResultadoImportacion } from '../../src/utils/importador';
 
 const ruta = (relativa: string) => fileURLToPath(new URL(`../../${relativa}`, import.meta.url));
@@ -23,8 +23,6 @@ const CRUDO_TITULADOS = `${CARPETA_CRUDOS}/ENCUESTA_DE_OPINION_A_TITULADOS_DE_IN
 const CRUDO_EMPLEADORES = `${CARPETA_CRUDOS}/ENCUESTA_EMPLEADORES_II_SISTEMAS_respuestas_1.xlsx`;
 const BASE_LIMPIA = `public/data/${NOMBRE_BASE_REAL}.xlsx`;
 const REPORTE = `${CARPETA_CRUDOS}/reporte_limpieza.md`;
-/** Empleadores de la base limpia anterior: conservan sus ids 1 a 51 (ver limpiarEncuestas). */
-const EMPLEADORES_ANTERIORES = 51;
 
 const aArrayBuffer = (b: Buffer) => b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer;
 
