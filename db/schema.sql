@@ -315,6 +315,19 @@ CREATE TABLE IF NOT EXISTS importaciones (
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Previsualizaciones de importación que esperan su confirmación. Guardan los registros ya
+-- interpretados del archivo; vencen a los 15 minutos y la API borra las vencidas.
+CREATE TABLE IF NOT EXISTS importaciones_pendientes (
+  token      TEXT PRIMARY KEY CHECK (char_length(token) BETWEEN 20 AND 100),
+  usuario_id INTEGER NOT NULL REFERENCES usuarios (id) ON DELETE CASCADE,
+  archivo    TEXT NOT NULL CHECK (char_length(archivo) BETWEEN 1 AND 255),
+  datos      JSONB NOT NULL,
+  expira_en  TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS importaciones_pendientes_expira_idx ON importaciones_pendientes (expira_en);
+
 -- Migración de bases creadas antes de las importaciones (se puede ejecutar varias veces)
 ALTER TABLE titulados   ADD COLUMN IF NOT EXISTS importacion_id INTEGER REFERENCES importaciones (id);
 ALTER TABLE empleadores ADD COLUMN IF NOT EXISTS importacion_id INTEGER REFERENCES importaciones (id);

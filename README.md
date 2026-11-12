@@ -206,7 +206,9 @@ y limpia con las mismas reglas que `npm run cargar-encuestas`. Los registros se 
 En ningún modo se modifican ni se borran las encuestas guardadas desde la web (`origen = 'formulario'`):
 si un Id del archivo es de una de ellas, se omite. Lo guardado lleva `origen = 'importacion'` y
 apunta a su fila de `importaciones` (quién importó, cuándo, el archivo y el modo). Si algo falla a
-mitad de camino, la transacción se deshace y no se guarda nada. La subida del archivo es la única
+mitad de camino, la transacción se deshace y no se guarda nada. Mientras esperan la confirmación,
+las previsualizaciones se guardan en la tabla `importaciones_pendientes` (vencen a los 15 minutos y
+las vencidas se borran), así que siguen valiendo aunque la API se reinicie. La subida del archivo es la única
 ruta con un límite mayor (10 MB, con multer); el JSON de las demás sigue limitado a 100 KB.
 
 Los POST de encuestas reciben el mismo borrador que arma el formulario. El servidor comprueba que cada valor

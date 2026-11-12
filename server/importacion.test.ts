@@ -280,18 +280,36 @@ describe.skipIf(!hayBase)('Importación de archivos', () => {
     it('un error a mitad de camino no deja filas parciales ni la importación', async () => {
       const antes = await conteos();
       const p = await previsualizar(libro({ titulados: [titulado(60), titulado(61), titulado(62)] }), 'con error.xlsx');
-      expect(importacion.obtenerPrevisualizacion(p.body.token, adminId + 1)).toBeUndefined(); // otro usuario no la ve
-      const previa = importacion.obtenerPrevisualizacion(p.body.token, adminId);
-      expect(previa).toBeDefined();
+      expect(await importacion.obtenerPrevisualizacion(pool, p.body.token, adminId + 1)).toBeUndefined(); // otro usuario no la ve
+      expect(await importacion.obtenerPrevisualizacion(pool, p.body.token, adminId)).toBeDefined();
       // Se corrompe el tercer registro después de la previsualización: falla al insertarlo,
       // cuando los dos primeros ya se insertaron dentro de la transacción
-      (previa!.datos.titulados[2] as unknown as Record<string, unknown>).edad = 'Edad inválida';
+      await pool.query(`UPDATE importaciones_pendientes SET datos = jsonb_set(datos, '{titulados,2,edad}', '"Edad inválida"') WHERE token = $1`, [p.body.token]);
 
       const c = await confirmar(p.body.token, 'agregar');
       expect(c.status).toBe(500);
       expect(c.body.error).toMatch(/no se guardó ningún registro/);
       expect(await conteos()).toEqual(antes);
       expect(await fila('titulados', 60)).toBeUndefined();
+      // La previsualización sigue pendiente (se descarta solo al guardar)
+      expect(await importacion.obtenerPrevisualizacion(pool, p.body.token, adminId)).toBeDefined();
+    });
+
+    it('las previsualizaciones se guardan en importaciones_pendientes y las vencidas se borran', async () => {
+      const p = await previsualizar(libro({ titulados: [titulado(65)] }), 'pendiente.xlsx');
+      const { rows } = await pool.query(
+        `SELECT usuario_id, archivo, jsonb_array_length(datos->'titulados') AS titulados, expira_en - created_at AS vigencia
+         FROM importaciones_pendientes WHERE token = $1`,
+        [p.body.token]
+      );
+      expect(rows[0]).toMatchObject({ usuario_id: adminId, archivo: 'pendiente.xlsx', titulados: 1 });
+      expect(rows[0].vigencia).toMatchObject({ minutes: 15 });
+
+      // Una previsualización vencida no se puede confirmar y se borra de la tabla
+      await pool.query(`UPDATE importaciones_pendientes SET expira_en = now() - interval '1 minute' WHERE token = $1`, [p.body.token]);
+      expect((await confirmar(p.body.token, 'agregar')).status).toBe(410);
+      expect((await pool.query('SELECT 1 FROM importaciones_pendientes WHERE token = $1', [p.body.token])).rowCount).toBe(0);
+      expect(await fila('titulados', 65)).toBeUndefined();
     });
 
     it('rechaza un token vencido o inexistente y un modo inválido', async () => {

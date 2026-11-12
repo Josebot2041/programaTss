@@ -215,11 +215,15 @@ export function totales(comparacion: Comparacion, modo: Modo): Totales {
 }
 
 // ---------------------------------------------------------------------------
-// Previsualizaciones pendientes (en memoria, 15 minutos)
+// Previsualizaciones pendientes (tabla importaciones_pendientes, 15 minutos)
 // ---------------------------------------------------------------------------
 
 export const VIGENCIA_PREVISUALIZACION_MS = 15 * 60 * 1000;
-const MAX_PREVISUALIZACIONES = 20;
+/** Pendientes que se conservan por usuario: las más antiguas se descartan. */
+const MAX_PENDIENTES_POR_USUARIO = 10;
+
+/** Pool o cliente de una transacción. */
+type Consultas = Pick<pg.ClientBase, 'query'>;
 
 export interface Previsualizacion {
   token: string;
@@ -229,30 +233,43 @@ export interface Previsualizacion {
   datos: ArchivoInterpretado;
 }
 
-const previsualizaciones = new Map<string, Previsualizacion>();
+const borrarVencidas = (db: Consultas) => db.query('DELETE FROM importaciones_pendientes WHERE expira_en <= now()');
 
-function quitarVencidas(ahora = Date.now()) {
-  for (const [token, p] of previsualizaciones) if (p.vence <= ahora) previsualizaciones.delete(token);
-}
-
-export function guardarPrevisualizacion(usuarioId: number, archivo: string, datos: ArchivoInterpretado): Previsualizacion {
-  quitarVencidas();
-  // Como mucho unas pocas en memoria: se descarta la más antigua
-  if (previsualizaciones.size >= MAX_PREVISUALIZACIONES) previsualizaciones.delete(previsualizaciones.keys().next().value!);
-  const p: Previsualizacion = { token: randomBytes(24).toString('base64url'), usuarioId, archivo, vence: Date.now() + VIGENCIA_PREVISUALIZACION_MS, datos };
-  previsualizaciones.set(p.token, p);
-  return p;
+/**
+ * Guarda los registros interpretados hasta que se confirmen (o venzan). Así la confirmación
+ * funciona aunque la API se reinicie o corra en varios procesos.
+ */
+export async function guardarPrevisualizacion(db: Consultas, usuarioId: number, archivo: string, datos: ArchivoInterpretado): Promise<Previsualizacion> {
+  await borrarVencidas(db);
+  const token = randomBytes(24).toString('base64url');
+  const { rows } = await db.query<{ expira_en: Date }>(
+    `INSERT INTO importaciones_pendientes (token, usuario_id, archivo, datos, expira_en)
+     VALUES ($1, $2, $3, $4, now() + $5 * interval '1 millisecond')
+     RETURNING expira_en`,
+    [token, usuarioId, archivo, JSON.stringify(datos), VIGENCIA_PREVISUALIZACION_MS]
+  );
+  await db.query(
+    `DELETE FROM importaciones_pendientes
+     WHERE usuario_id = $1
+       AND token NOT IN (SELECT token FROM importaciones_pendientes WHERE usuario_id = $1 ORDER BY created_at DESC, token LIMIT $2)`,
+    [usuarioId, MAX_PENDIENTES_POR_USUARIO]
+  );
+  return { token, usuarioId, archivo, vence: rows[0].expira_en.getTime(), datos };
 }
 
 /** La previsualización vigente de ese usuario, o undefined si venció, no existe o es de otro. */
-export function obtenerPrevisualizacion(token: string, usuarioId: number): Previsualizacion | undefined {
-  quitarVencidas();
-  const p = previsualizaciones.get(token);
-  return p && p.usuarioId === usuarioId ? p : undefined;
+export async function obtenerPrevisualizacion(db: Consultas, token: string, usuarioId: number): Promise<Previsualizacion | undefined> {
+  await borrarVencidas(db);
+  const { rows } = await db.query<{ archivo: string; datos: ArchivoInterpretado; expira_en: Date }>(
+    'SELECT archivo, datos, expira_en FROM importaciones_pendientes WHERE token = $1 AND usuario_id = $2 AND expira_en > now()',
+    [token, usuarioId]
+  );
+  const f = rows[0];
+  return f && { token, usuarioId, archivo: f.archivo, vence: f.expira_en.getTime(), datos: f.datos };
 }
 
-export function descartarPrevisualizacion(token: string) {
-  previsualizaciones.delete(token);
+export async function descartarPrevisualizacion(db: Consultas, token: string) {
+  await db.query('DELETE FROM importaciones_pendientes WHERE token = $1', [token]);
 }
 
 // ---------------------------------------------------------------------------

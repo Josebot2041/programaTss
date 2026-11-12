@@ -26,7 +26,8 @@ const muestra = <T>(c: Clasificacion<T>) => c.registros.slice(0, FILAS_MUESTRA).
 
 /**
  * POST /api/admin/importar/previsualizar — interpreta el archivo y lo compara con la base, sin
- * guardar nada. Devuelve un token para confirmar (vigente 15 minutos) y los datos interpretados,
+ * guardar ningún registro (solo la previsualización pendiente, en importaciones_pendientes).
+ * Devuelve un token para confirmar (vigente 15 minutos) y los datos interpretados,
  * que el panel también puede analizar sin guardarlos.
  */
 export async function previsualizarImportacion({ archivo, usuario }: Peticion): Promise<Respuesta> {
@@ -48,7 +49,7 @@ export async function previsualizarImportacion({ archivo, usuario }: Peticion): 
   } finally {
     cliente.release();
   }
-  const p = guardarPrevisualizacion(usuario!.id, archivo.nombre, datos);
+  const p = await guardarPrevisualizacion(pool, usuario!.id, archivo.nombre, datos);
 
   return {
     status: 200,
@@ -79,12 +80,16 @@ export async function confirmarImportacion({ body, usuario }: Peticion): Promise
   if (typeof modo !== 'string' || !(MODOS as readonly string[]).includes(modo)) errores.modo = `El modo debe ser ${MODOS.join(', ')}`;
   if (Object.keys(errores).length > 0) return { status: 400, body: { errores } };
 
-  const p = obtenerPrevisualizacion(token as string, usuario!.id);
+  const p = await obtenerPrevisualizacion(pool, token as string, usuario!.id);
   if (!p) return { status: 410, body: { error: 'La previsualización venció o no existe. Vuelva a subir el archivo.' } };
 
   try {
-    const resultado = await enTransaccion((cliente) => aplicarImportacion(cliente, p, modo as Modo));
-    descartarPrevisualizacion(p.token);
+    // La previsualización se descarta en la misma transacción: si algo falla, sigue disponible
+    const resultado = await enTransaccion(async (cliente) => {
+      const r = await aplicarImportacion(cliente, p, modo as Modo);
+      await descartarPrevisualizacion(cliente, p.token);
+      return r;
+    });
     return { status: 200, body: resultado };
   } catch (err) {
     console.error('Importación fallida:', err);
