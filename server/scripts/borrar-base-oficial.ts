@@ -1,91 +1,63 @@
 /**
- * Script: borrar-base-oficial.ts
- * Elimina todos los registros con origen = 'base_oficial' de la BD.
- * Deja únicamente los 184 titulados y 79 empleadores del formulario.
+ * Elimina de PostgreSQL todos los registros de la base oficial (origen = 'base_oficial'):
+ * titulados y empleadores, con sus selecciones múltiples y respuestas (caen en cascada).
+ * No toca las encuestas guardadas desde la web (origen = 'formulario') ni las importadas desde el
+ * panel (origen = 'importacion'). Para volver a cargar la base oficial: npm run db:seed.
  *
- * Uso: npx tsx server/scripts/borrar-base-oficial.ts
+ * Es destructivo, así que no tiene script en package.json y pide dos confirmaciones:
+ *
+ *   npx tsx server/scripts/borrar-base-oficial.ts --confirmar
+ *
+ * y después escribir BORRAR en la consola.
  */
-import 'dotenv/config';
-import { pool, enTransaccion } from '../db.js';
 
-await enTransaccion(async (cliente) => {
-  console.log('=== Inicio de eliminación de base_oficial ===\n');
+import { createInterface } from 'node:readline/promises';
+import { parseArgs } from 'node:util';
 
-  // ── Titulados ────────────────────────────────────────────────────────────
-  const { rowCount: ta } = await cliente.query(
-    `DELETE FROM titulado_actividad
-     WHERE titulado_id IN (SELECT id FROM titulados WHERE origen = 'base_oficial')`
-  );
-  console.log(`titulado_actividad eliminados: ${ta}`);
+const { values } = parseArgs({ options: { confirmar: { type: 'boolean', default: false } } });
 
-  const { rowCount: tau } = await cliente.query(
-    `DELETE FROM titulado_aspecto_util
-     WHERE titulado_id IN (SELECT id FROM titulados WHERE origen = 'base_oficial')`
-  );
-  console.log(`titulado_aspecto_util eliminados: ${tau}`);
+if (!values.confirmar) {
+  console.error('Este script elimina todos los registros de la base oficial (origen = base_oficial).');
+  console.error('Para ejecutarlo: npx tsx server/scripts/borrar-base-oficial.ts --confirmar');
+  process.exit(1);
+}
 
-  const { rowCount: tam } = await cliente.query(
-    `DELETE FROM titulado_aspecto_mejorar
-     WHERE titulado_id IN (SELECT id FROM titulados WHERE origen = 'base_oficial')`
-  );
-  console.log(`titulado_aspecto_mejorar eliminados: ${tam}`);
+// Se importa aquí para no exigir DATABASE_URL si falta --confirmar.
+const { enTransaccion, pool } = await import('../db');
 
-  const { rowCount: tav } = await cliente.query(
-    `DELETE FROM titulado_asignatura_ventaja
-     WHERE titulado_id IN (SELECT id FROM titulados WHERE origen = 'base_oficial')`
-  );
-  console.log(`titulado_asignatura_ventaja eliminados: ${tav}`);
+const contar = async () =>
+  (
+    await pool.query<{ tabla: string; origen: string; total: number }>(
+      `SELECT 'titulados' AS tabla, origen, count(*)::int AS total FROM titulados GROUP BY origen
+       UNION ALL
+       SELECT 'empleadores', origen, count(*)::int FROM empleadores GROUP BY origen
+       ORDER BY 1, 2`
+    )
+  ).rows;
 
-  const { rowCount: tanu } = await cliente.query(
-    `DELETE FROM titulado_asignatura_no_util
-     WHERE titulado_id IN (SELECT id FROM titulados WHERE origen = 'base_oficial')`
-  );
-  console.log(`titulado_asignatura_no_util eliminados: ${tanu}`);
+try {
+  const antes = await contar();
+  const oficiales = (tabla: string) => antes.find((r) => r.tabla === tabla && r.origen === 'base_oficial')?.total ?? 0;
+  console.log(`Se eliminarán ${oficiales('titulados')} titulados y ${oficiales('empleadores')} empleadores de la base oficial.`);
+  console.log('Las encuestas de la web y las importadas desde el panel no se tocan.');
 
-  const { rowCount: t } = await cliente.query(
-    `DELETE FROM titulados WHERE origen = 'base_oficial'`
-  );
-  console.log(`titulados eliminados: ${t}\n`);
-
-  // ── Empleadores ──────────────────────────────────────────────────────────
-  const { rowCount: re } = await cliente.query(
-    `DELETE FROM respuestas_empleador
-     WHERE empleador_id IN (SELECT id FROM empleadores WHERE origen = 'base_oficial')`
-  );
-  console.log(`respuestas_empleador eliminadas: ${re}`);
-
-  const { rowCount: ec } = await cliente.query(
-    `DELETE FROM empleador_cargo
-     WHERE empleador_id IN (SELECT id FROM empleadores WHERE origen = 'base_oficial')`
-  );
-  console.log(`empleador_cargo eliminados: ${ec}`);
-
-  const { rowCount: e } = await cliente.query(
-    `DELETE FROM empleadores WHERE origen = 'base_oficial'`
-  );
-  console.log(`empleadores eliminados: ${e}\n`);
-
-  // ── Verificación final ───────────────────────────────────────────────────
-  const { rows } = await cliente.query(`
-    SELECT 'titulados'   AS tabla, origen, count(*)::int AS total FROM titulados   GROUP BY origen
-    UNION ALL
-    SELECT 'empleadores' AS tabla, origen, count(*)::int AS total FROM empleadores GROUP BY origen
-    ORDER BY tabla, origen
-  `);
-
-  console.log('=== Estado final de la BD ===');
-  rows.forEach((r) => console.log(`  ${r.tabla} [${r.origen}]: ${r.total}`));
-
-  if (rows.length === 2) {
-    const tRow = rows.find((r) => r.tabla === 'titulados');
-    const eRow = rows.find((r) => r.tabla === 'empleadores');
-    if (tRow?.total === 184 && eRow?.total === 79) {
-      console.log('\n✅ Correcto: 184 titulados y 79 empleadores (solo formulario).');
-    } else {
-      console.log(`\n⚠️  Atención: se esperaban 184 titulados y 79 empleadores.`);
-    }
+  const consola = createInterface({ input: process.stdin, output: process.stdout });
+  const respuesta = await consola.question('Escriba BORRAR para confirmar: ');
+  consola.close();
+  if (respuesta.trim() !== 'BORRAR') {
+    console.log('No se escribió BORRAR: no se eliminó nada.');
+    process.exitCode = 1;
+  } else {
+    await enTransaccion(async (cliente) => {
+      await cliente.query(`DELETE FROM titulados WHERE origen = 'base_oficial'`);
+      await cliente.query(`DELETE FROM empleadores WHERE origen = 'base_oficial'`);
+    });
+    console.log('Registros por origen después de borrar:');
+    for (const r of await contar()) console.log(`  ${r.tabla} [${r.origen}]: ${r.total}`);
   }
-});
-
-await pool.end();
-
+} catch (err) {
+  console.error('No se pudo borrar la base oficial:', err instanceof Error ? err.message : err);
+  process.exitCode = 1;
+} finally {
+  await pool.end();
+}

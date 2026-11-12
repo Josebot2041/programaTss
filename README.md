@@ -89,8 +89,9 @@ si la sesión venció (401) se vuelve al login.
    regenerarla, copie los dos Excel en `data/encuestas/` y ejecute `npm run cargar-encuestas`: aplica
    las reglas de limpieza y deja el detalle de cada fila descartada o corregida en
    `data/encuestas/reporte_limpieza.md`. Los Excel crudos tienen datos de contacto, así que **no se
-   suben al repositorio** (están en `.gitignore`); la base limpia no los incluye. No ejecute
-   `borrar-base-oficial`: elimina todos los registros oficiales.
+   suben al repositorio** (están en `.gitignore`); la base limpia no los incluye. El script
+   `server/scripts/borrar-base-oficial.ts` elimina todos los registros oficiales: no tiene script en
+   `package.json` y exige `--confirmar` y escribir «BORRAR» en la consola.
 
    Primero carga los catálogos desde `src/data/catalogos.ts`, luego las afirmaciones y los
    registros oficiales, todo en una transacción. Se puede ejecutar las veces que haga falta: los
