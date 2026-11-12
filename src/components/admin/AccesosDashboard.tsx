@@ -3,7 +3,7 @@ import { ArrowRight } from 'lucide-react';
 import { NAVEGACION } from '../Sidebar';
 import { EncabezadoPagina } from '../ui/Estructura';
 
-/** Qué muestra cada pestaña de estadísticas y gráficos. */
+
 const DESCRIPCIONES: Record<string, string> = {
   titulados: 'Vida profesional por segmento (junior y consolidado), su distribución y el perfil general.',
   mercado: 'Situación laboral, tiempo para el primer empleo y remuneración según sector.',

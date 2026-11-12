@@ -3,8 +3,7 @@ import { CloudOff, Database, FileSpreadsheet, LogOut, Menu, Printer } from 'luci
 import type { Usuario } from '../utils/validacionUsuario';
 import { NAVEGACION, NAVEGACION_ADMIN } from './Sidebar';
 
-/** De dónde vienen los datos a la vista: PostgreSQL, el Excel de respaldo o un archivo importado. */
-export type FuenteDatos = 'api' | 'excel' | 'archivo';
+
 
 interface HeaderProps {
   activeTab: string;
@@ -107,24 +106,10 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         <div className="flex items-center gap-4 shrink-0 text-sm">
-          <IndicadorFuente
-            fuente={fuente}
-            alDia={alDia}
-            recargando={recargando}
-            tituladosCount={tituladosCount}
-            empleadoresCount={empleadoresCount}
-            onReintentar={onReintentar}
-          />
-          <button onClick={onOpenReport} className="flex items-center gap-1.5 text-institucional hover:underline">
-            <Printer className="w-4 h-4" />
-            <span className="hidden sm:inline">Informe</span>
-          </button>
+          
+          
           {usuario && (
             <div className="flex items-center gap-3 pl-4 border-l border-slate-200">
-              <div className="hidden md:block text-right leading-tight" data-testid="usuario-actual">
-                <div className="text-slate-900 font-medium max-w-48 truncate">{usuario.nombre_completo}</div>
-                <div className="text-xs text-slate-500">{NOMBRE_ROL[usuario.rol]}</div>
-              </div>
               <button onClick={onCerrarSesion} className="flex items-center gap-1.5 text-slate-600 hover:text-slate-900" title="Cerrar sesión">
                 <LogOut className="w-4 h-4" />
                 <span className="hidden sm:inline">Cerrar sesión</span>

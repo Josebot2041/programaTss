@@ -60,10 +60,7 @@ export const TabOverview: React.FC<TabOverviewProps> = ({ titulados, empleadores
           titulo="Análisis de mercado de Ingeniería de Sistemas"
           descripcion={`Perfil, formación y empleabilidad de ${titulados.length} titulados y ${empleadores.length} empleadores, como insumo para la autoevaluación ARCU-SUR.`}
         />
-        <p className="mt-3 text-xs text-slate-500">
-          {INFO_INSTITUCIONAL.universidad} · {INFO_INSTITUCIONAL.facultad} · {INFO_INSTITUCIONAL.materia} · {INFO_INSTITUCIONAL.grupo} ·{' '}
-          {INFO_INSTITUCIONAL.fecha}
-        </p>
+        
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">

@@ -3,7 +3,6 @@ import {
   BarChart3,
   Briefcase,
   Building2,
-  Cpu,
   Database,
   FileText,
   Gauge,
@@ -51,24 +50,12 @@ export const NAVEGACION: NavSection[] = [
     ]
   },
   {
-    group: 'Análisis',
+    group: 'Análisis de Datos',
     items: [
       { id: 'titulados', label: 'Perfil de los titulados', icon: GraduationCap },
       { id: 'mercado', label: 'Mercado laboral', icon: Briefcase },
       { id: 'curriculo', label: 'Plan de estudios', icon: Layers },
-      { id: 'estadistica', label: 'Pruebas de independencia', icon: BarChart3 }
-    ]
-  },
-  {
-    group: 'Simulación',
-    items: [{ id: 'simulacion', label: 'Escenarios de decisión', icon: Cpu }]
-  },
-  {
-    group: 'Datos',
-    items: [
-      { id: 'encuesta_titulados', label: 'Encuesta a titulados', icon: UserCheck },
-      { id: 'encuesta_empleadores', label: 'Encuesta a empleadores', icon: Building2 },
-      { id: 'encuestas', label: 'Base de datos', icon: Database }
+      { id: 'estadistica', label: 'Pruebas estadísticas', icon: BarChart3 }
     ]
   }
 ];
@@ -111,18 +98,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
           isOpenMobile ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="px-5 py-4 border-b border-slate-200 flex items-start justify-between">
-          <div>
-            <div className="text-sm font-semibold text-slate-900">Ingeniería de Sistemas</div>
-            <div className="text-xs text-slate-500">UMSS · Análisis de mercado</div>
-          </div>
-          <button onClick={onCloseMobile} className="p-1 text-slate-400 hover:text-slate-700 lg:hidden" aria-label="Cerrar menú">
+        
+        <div className="px-5 py-6 border-b border-slate-200 flex items-center justify-start pl-6 relative">
+          <img 
+            src="/logo-umss2.png" 
+            alt="Logo UMSS" 
+            className="h-18 object-contain" 
+          />
+          <button onClick={onCloseMobile} className="absolute right-4 top-6 p-1 text-slate-400 hover:text-slate-700 lg:hidden" aria-label="Cerrar menú">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5" aria-label="Secciones">
-          {(esAdmin ? [...NAVEGACION, NAVEGACION_ADMIN] : NAVEGACION).map((seccion) => (
+          {(NAVEGACION).map((seccion) => (
             <div key={seccion.group}>
               <div className="px-2 mb-1 text-xs font-medium text-slate-500">{seccion.group}</div>
               <ul className="space-y-0.5">
@@ -162,11 +151,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <Printer className="w-4 h-4" />
             Informe en PDF
           </button>
-          <div className="text-xs text-slate-500">
-            {tituladosCount} titulados · {empleadoresCount} empleadores
-            <br />
-            {INFO_INSTITUCIONAL.grupo} · {INFO_INSTITUCIONAL.fecha}
-          </div>
         </div>
       </aside>
     </>
