@@ -249,6 +249,10 @@ columna salen de constantes del código y se validan antes de usarse. Las petici
 
 React 19 · TypeScript (modo `strict`) · Vite · Tailwind CSS · lucide-react · Express 5 · PostgreSQL (pg)
 
+SheetJS (`xlsx` 0.20.3) no se publica en el registro de npm: el paquete está guardado en
+`vendor/xlsx-0.20.3.tgz` y se instala desde ahí (`"xlsx": "file:vendor/xlsx-0.20.3.tgz"`), así
+`npm install` no depende de cdn.sheetjs.com.
+
 ## Estructura
 
 | Carpeta | Contenido |
