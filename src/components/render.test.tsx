@@ -19,7 +19,9 @@ import { TabSimulationEngine } from './TabSimulationEngine';
 import { TabStrategicPlan } from './TabStrategicPlan';
 import { TabSurveysCollection } from './TabSurveysCollection';
 import { ExploradorDatos } from './ExploradorDatos';
-import { PantallaAcceso } from './PantallaAcceso';
+import { AccesoAdmin } from './publico/AccesoAdmin';
+import { EncuestaPublica } from './publico/EncuestaPublica';
+import { PortadaPublica } from './publico/PortadaPublica';
 import { AccesosDashboard } from './admin/AccesosDashboard';
 import { AdminUsuarios } from './admin/AdminUsuarios';
 import { PanelControl } from './admin/PanelControl';
@@ -42,7 +44,9 @@ const admin: Usuario = {
 };
 
 const pantallas: Array<[string, React.ReactElement]> = [
-  ['Sidebar', <Sidebar activeTab="overview" setActiveTab={nada} onOpenReport={nada} tituladosCount={148} empleadoresCount={51} isOpenMobile={false} onCloseMobile={nada} />],
+  ['Portada pública', <PortadaPublica />],
+  ['Encuesta pública', <EncuestaPublica tipo="titulados" onVolver={nada} />],
+  ['Sidebar', <Sidebar activeTab="overview" setActiveTab={nada} onOpenReport={nada} tituladosCount={148} empleadoresCount={51} isOpenMobile={false} onCloseMobile={nada} onVerPortada={nada} />],
   ['Header', <Header activeTab="overview" onOpenReport={nada} tituladosCount={148} empleadoresCount={51} onToggleMobileMenu={nada} />],
   ['Portada', <TabOverview titulados={titulados} empleadores={empleadores} onNavigate={nada} />],
   ['Perfil de titulados', <TabProfileGraduates titulados={titulados} />],
@@ -65,12 +69,12 @@ const pantallas: Array<[string, React.ReactElement]> = [
       onNavigate={nada}
     />
   ],
-  ['Encuesta titulados', <FormTituladosSurvey onGuardarTitulado={guardarNada} onNavigateToAnalytics={nada} idsExistentes={titulados.map((t) => t.id)} />],
-  ['Encuesta empleadores', <FormEmpleadoresSurvey onGuardarEmpleador={guardarNada} onNavigateToAnalytics={nada} idsExistentes={empleadores.map((e) => e.id)} />],
+  ['Encuesta titulados', <FormTituladosSurvey onGuardarTitulado={guardarNada} />],
+  ['Encuesta empleadores', <FormEmpleadoresSurvey onGuardarEmpleador={guardarNada} />],
   ['Informe imprimible', <OfficialReportModal isOpen onClose={nada} titulados={titulados} empleadores={empleadores} />],
-  ['Sidebar de administrador', <Sidebar activeTab="admin" setActiveTab={nada} onOpenReport={nada} tituladosCount={148} empleadoresCount={51} isOpenMobile={false} onCloseMobile={nada} esAdmin />],
+  ['Sidebar en Administración', <Sidebar activeTab="admin" setActiveTab={nada} onOpenReport={nada} tituladosCount={148} empleadoresCount={51} isOpenMobile={false} onCloseMobile={nada} onVerPortada={nada} />],
   ['Header con sesión', <Header activeTab="admin_usuarios" onOpenReport={nada} tituladosCount={148} empleadoresCount={51} onToggleMobileMenu={nada} usuario={admin} onCerrarSesion={nada} />],
-  ['Iniciar sesión', <PantallaAcceso onAutenticado={nada} aviso="Su sesión terminó." />],
+  ['Acceso administrador', <AccesoAdmin onAutenticado={nada} onVolver={nada} aviso="Su sesión terminó." />],
   ['Panel de control', <PanelControl />],
   ['Usuarios', <AdminUsuarios usuarioActual={admin} />],
   ['Tabla de empleadores', <ExploradorDatos titulados={titulados} empleadores={empleadores} conjunto="empleadores" onNavigate={nada} />],
@@ -286,24 +290,61 @@ describe('Autenticación y administración', () => {
     expect(texto).toContain('Administración / Panel de control');
   });
 
-  it('la sección Administración del Sidebar solo aparece para administradores', () => {
-    const props = { activeTab: 'overview', setActiveTab: nada, onOpenReport: nada, tituladosCount: 1, empleadoresCount: 1, isOpenMobile: false, onCloseMobile: nada };
-    expect(textoVisible(<Sidebar {...props} />)).not.toContain('Administración');
-    const texto = textoVisible(<Sidebar {...props} esAdmin />);
-    for (const etiqueta of ['Administración', 'Panel de control', 'Usuarios', 'Titulados', 'Empleadores', 'Dashboard']) expect(texto).toContain(etiqueta);
+  it('el Sidebar ya no tiene las encuestas (están en la portada) y enlaza a la portada pública', () => {
+    const texto = textoVisible(
+      <Sidebar activeTab="overview" setActiveTab={nada} onOpenReport={nada} tituladosCount={1} empleadoresCount={1} isOpenMobile={false} onCloseMobile={nada} onVerPortada={nada} />
+    );
+    expect(texto).not.toContain('Encuesta a titulados');
+    expect(texto).not.toContain('Encuesta a empleadores');
+    for (const etiqueta of ['Base de datos', 'Administración', 'Panel de control', 'Usuarios', 'Titulados', 'Empleadores', 'Dashboard', 'Ver portada pública']) {
+      expect(texto).toContain(etiqueta);
+    }
   });
 
-  it('la pantalla de acceso tiene CI, contraseña con botón para mostrarla y enlace a «Crear cuenta»', () => {
-    const html = renderToStaticMarkup(<PantallaAcceso onAutenticado={nada} />);
+  it('el acceso de administrador tiene CI, contraseña con botón para mostrarla y «Volver al inicio», sin registro', () => {
+    const html = renderToStaticMarkup(<AccesoAdmin onAutenticado={nada} onVolver={nada} />);
     expect(html).toContain('autoComplete="username"');
     expect(html).toContain('type="password"');
     expect(html).toContain('aria-label="Mostrar contraseña"');
-    expect(textoVisible(<PantallaAcceso onAutenticado={nada} />)).toContain('Crear cuenta');
+    const texto = textoVisible(<AccesoAdmin onAutenticado={nada} onVolver={nada} />);
+    expect(texto).toContain('Acceso administrador');
+    expect(texto).toContain('Volver al inicio');
+    expect(texto).not.toContain('Crear cuenta');
   });
 
   it('el gráfico por día tiene su tabla con los totales', () => {
     const texto = textoVisible(<RegistrosPorDia dias={[{ fecha: '2026-10-28', titulados: 2, empleadores: 1 }]} />);
     expect(texto).toContain('Titulados Empleadores Total');
     expect(texto).toMatch(/mié 28\/10 2 1 3/);
+  });
+});
+
+describe('Portada y encuestas públicas', () => {
+  it('la portada tiene el título, el subtítulo y 3 tarjetas con su botón', () => {
+    const html = renderToStaticMarkup(<PortadaPublica />);
+    const texto = textoVisible(<PortadaPublica />);
+    expect(texto).toContain('Sistema de Análisis de Mercado y Empleabilidad');
+    expect(texto).toContain('Ingeniería de Sistemas — Universidad Mayor de San Simón');
+    expect(texto).toContain('Herramienta de recolección y análisis para el proceso de acreditación ARCU-SUR');
+    expect(texto).toContain('Universidad Mayor de San Simón — Facultad de Ciencias y Tecnología');
+    expect(html.match(/<li /g)).toHaveLength(3);
+    expect(texto).toMatch(/Soy titulado.*Llenar encuesta.*Soy empleador.*Llenar encuesta.*Administrador.*Entrar al panel/);
+    for (const href of ['#encuesta-titulados', '#encuesta-empleadores', '#admin-login']) expect(html).toContain(`href="${href}"`);
+  });
+
+  it('las encuestas tienen sus secciones numeradas en el orden del formulario oficial', () => {
+    const titulados = textoVisible(<FormTituladosSurvey onGuardarTitulado={guardarNada} />);
+    expect(titulados).toMatch(
+      /1\. Datos generales.*2\. Formación complementaria.*3\. Interés en posgrado.*4\. Vida profesional.*5\. Situación laboral.*6\. Valoración de la formación.*7\. Asignaturas.*Enviar encuesta/
+    );
+    const empleadores = textoVisible(<FormEmpleadoresSurvey onGuardarEmpleador={guardarNada} />);
+    expect(empleadores).toMatch(/1\. Datos de la organización.*2\. Contratación de titulados.*3\. Tecnologías y habilidades.*4\. Valoración de la Carrera/);
+  });
+
+  it('la encuesta pública tiene «Volver al inicio» y un campo trampa oculto', () => {
+    const html = renderToStaticMarkup(<EncuestaPublica tipo="empleadores" onVolver={nada} />);
+    expect(textoVisible(<EncuestaPublica tipo="empleadores" onVolver={nada} />)).toContain('Volver al inicio');
+    expect(html).toMatch(/<div aria-hidden="true"[^>]*><label for="sitio_web">/);
+    expect(html).toMatch(/<input id="sitio_web"[^>]*tabindex="-1"/i);
   });
 });

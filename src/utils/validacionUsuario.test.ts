@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { errorCi, errorNombre, errorPassword, normalizarCi, validarLogin, validarRegistro } from './validacionUsuario';
+import { errorCi, errorNombre, errorPassword, normalizarCi, validarLogin } from './validacionUsuario';
 
 describe('normalizarCi', () => {
   it.each([
@@ -42,25 +42,6 @@ describe('reglas de la cuenta', () => {
   it('CI vacío y CI inválido tienen mensajes distintos', () => {
     expect(errorCi('')).toMatch(/Ingrese/);
     expect(errorCi('12')).toMatch(/de 5 a 10 dígitos/);
-  });
-});
-
-describe('validarRegistro', () => {
-  it('devuelve los datos normalizados', () => {
-    const r = validarRegistro({ nombre_completo: '  Ana   Quispe ', ci: '1234567lp', password: 'clave123', confirmacion: 'clave123' });
-    expect(r.errores).toEqual({});
-    expect(r.datos).toEqual({ nombre_completo: 'Ana Quispe', ci: '1234567 LP', password: 'clave123' });
-  });
-
-  it('informa cada campo con error y no devuelve datos', () => {
-    const r = validarRegistro({ nombre_completo: '', ci: 'x', password: 'abc', confirmacion: 'abd' });
-    expect(Object.keys(r.errores).sort()).toEqual(['ci', 'confirmacion', 'nombre_completo', 'password']);
-    expect(r.datos).toBeUndefined();
-  });
-
-  it('ignora valores que no son texto', () => {
-    expect(validarRegistro(null).errores.ci).toMatch(/Ingrese/);
-    expect(validarRegistro({ ci: 1234567, password: ['x'] }).errores.password).toMatch(/Ingrese/);
   });
 });
 
