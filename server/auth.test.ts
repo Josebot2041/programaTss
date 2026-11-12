@@ -204,6 +204,25 @@ describe.skipIf(!hayBase)('API de autenticación', () => {
       expect((await nuevoCliente().login(nuevoCi(), 'incorrecta1')).status).toBe(401);
     });
 
+    it('además, 20 logins fallidos desde la misma IP (con CI distintos) bloquean cualquier login', async () => {
+      // Una aplicación aparte: su contador no depende de los intentos de las demás pruebas
+      const { crearApp } = await import('./app');
+      const otro = crearApp().listen(0);
+      await new Promise((resolve) => otro.once('listening', resolve));
+      try {
+        const cliente = () => new Cliente(() => `http://127.0.0.1:${(otro.address() as AddressInfo).port}`);
+        // Cada CI falla una sola vez: el límite por CI + IP (5) no llega a actuar
+        for (let i = 0; i < 20; i++) expect((await cliente().login(nuevoCi(), `incorrecta${i}`)).status).toBe(401);
+        const bloqueado = await cliente().login(admin.ci, PASSWORD);
+        expect(bloqueado.status).toBe(429);
+        expect(bloqueado.body.error).toMatch(/Demasiados intentos/);
+        expect(bloqueado.headers.get('set-cookie')).toBeNull();
+      } finally {
+        otro.close();
+      }
+      // 21 comparaciones bcrypt de costo 12
+    }, 30_000);
+
     it('los logins exitosos no cuentan como intentos', async () => {
       const u = await crearUsuario('Admin Constante', 'admin');
       for (let i = 0; i < 6; i++) expect((await nuevoCliente().login(u.ci, PASSWORD)).status).toBe(200);

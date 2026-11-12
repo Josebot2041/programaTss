@@ -167,7 +167,7 @@ npm run test:e2e   # pruebas de extremo a extremo (Playwright)
 | GET | `/api/health` | Público | Estado de la API y de la conexión a la base (`503` si la base no responde) |
 | POST | `/api/publico/titulados` | Público | Encuesta de titulado sin cuenta (`201`, o `400` con `{ errores }` por campo; `429` tras 10 envíos por IP en una hora) |
 | POST | `/api/publico/empleadores` | Público | Encuesta de empleador sin cuenta (mismas reglas y límite) |
-| POST | `/api/auth/login` | Público | Inicia sesión con `{ ci, password }`, solo administradores (`401` «CI o contraseña incorrectos», `403` «No tiene permisos de administrador», `429` tras 5 intentos fallidos) |
+| POST | `/api/auth/login` | Público | Inicia sesión con `{ ci, password }`, solo administradores (`401` «CI o contraseña incorrectos», `403` «No tiene permisos de administrador», `429` tras 5 intentos fallidos con el mismo CI o 20 desde la misma IP) |
 | POST | `/api/auth/logout` | Público | Cierra la sesión |
 | GET | `/api/auth/yo` | Sesión | Usuario actual (sin el hash de la contraseña) |
 | GET | `/api/titulados` | Admin | Lista de titulados |
@@ -236,8 +236,9 @@ columna salen de constantes del código y se validan antes de usarse. Las petici
   Cada petición vuelve a leer al usuario: si un administrador lo desactiva, lo elimina o le cambia el
   rol, el cambio rige de inmediato.
 - **Login:** el mensaje de error es siempre «CI o contraseña incorrectos», exista o no el CI, y la
-  respuesta tarda lo mismo en ambos casos. Tras 5 intentos fallidos con el mismo CI desde la misma IP
-  hay que esperar 15 minutos (el contador vive en la memoria del proceso de la API).
+  respuesta tarda lo mismo en ambos casos. Tras 5 intentos fallidos con el mismo CI desde la misma IP,
+  o 20 desde la misma IP con cualquier CI, hay que esperar 15 minutos (los contadores viven en la
+  memoria del proceso de la API).
 - **Roles:** solo `admin` entra al panel. La tabla `usuarios` conserva el rol `usuario` (por ejemplo,
   para quitarle el acceso a un administrador desde **Administración → Usuarios** sin borrarlo).
 

@@ -13,6 +13,7 @@ import {
   cerrarSesion,
   crearLimiteEncuestas,
   crearLimiteLogin,
+  crearLimiteLoginPorIp,
   crearMiddlewareSesion,
   enProduccion,
   iniciarSesion,
@@ -99,7 +100,8 @@ export function crearApp() {
     next();
   });
   app.use('/api', crearMiddlewareSesion());
-  app.post('/api/auth/login', crearLimiteLogin());
+  // Primero el límite por IP (20 fallidos) y después el de CI + IP (5 fallidos), ambos cada 15 minutos
+  app.post('/api/auth/login', crearLimiteLoginPorIp(), crearLimiteLogin());
   app.post('/api/publico/titulados', crearLimiteEncuestas());
   app.post('/api/publico/empleadores', crearLimiteEncuestas());
 

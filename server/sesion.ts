@@ -25,6 +25,7 @@ export const NOMBRE_COOKIE = 'arcusur.sid';
 const DURACION_SESION_MS = 8 * 60 * 60 * 1000; // 8 horas sin actividad
 const VENTANA_LOGIN_MS = 15 * 60 * 1000;
 const MAX_LOGINS_FALLIDOS = 5;
+const MAX_LOGINS_FALLIDOS_POR_IP = 20;
 
 export const enProduccion = () => process.env.NODE_ENV === 'production';
 
@@ -99,21 +100,15 @@ export const requiereAdmin: express.RequestHandler = (_req, res, next) => {
   next();
 };
 
-/**
- * Hasta 5 logins fallidos por combinación de CI e IP cada 15 minutos; los exitosos no cuentan.
- * Se crea uno por aplicación (el contador vive en memoria del proceso).
- */
-export function crearLimiteLogin(): express.RequestHandler {
+/** Límite de logins fallidos cada 15 minutos (los exitosos no cuentan), con su propia clave. */
+function limiteLogin(limite: number, clave: (req: express.Request) => string): express.RequestHandler {
   return rateLimit({
     windowMs: VENTANA_LOGIN_MS,
-    limit: MAX_LOGINS_FALLIDOS,
+    limit: limite,
     skipSuccessfulRequests: true,
     standardHeaders: 'draft-8',
     legacyHeaders: false,
-    keyGenerator: (req) => {
-      const ci = typeof req.body?.ci === 'string' ? req.body.ci : '';
-      return `${ipKeyGenerator(req.ip ?? '')}|${normalizarCi(ci) ?? ci.trim().toUpperCase().slice(0, 20)}`;
-    },
+    keyGenerator: clave,
     handler: (req, res) => {
       const reinicio = (req as express.Request & { rateLimit?: { resetTime?: Date } }).rateLimit?.resetTime;
       const minutos = reinicio ? Math.max(1, Math.ceil((reinicio.getTime() - Date.now()) / 60000)) : 15;
@@ -122,6 +117,26 @@ export function crearLimiteLogin(): express.RequestHandler {
       });
     }
   });
+}
+
+/**
+ * Hasta 5 logins fallidos por combinación de CI e IP cada 15 minutos. Se crea uno por aplicación
+ * (el contador vive en memoria del proceso).
+ */
+export function crearLimiteLogin(): express.RequestHandler {
+  return limiteLogin(MAX_LOGINS_FALLIDOS, (req) => {
+    const ci = typeof req.body?.ci === 'string' ? req.body.ci : '';
+    return `${ipKeyGenerator(req.ip ?? '')}|${normalizarCi(ci) ?? ci.trim().toUpperCase().slice(0, 20)}`;
+  });
+}
+
+/**
+ * Además, hasta 20 logins fallidos por IP cada 15 minutos, sea cual sea el CI: frena a quien prueba
+ * muchos CI distintos desde la misma conexión. Los intentos rechazados por el otro límite también
+ * cuentan.
+ */
+export function crearLimiteLoginPorIp(): express.RequestHandler {
+  return limiteLogin(MAX_LOGINS_FALLIDOS_POR_IP, (req) => ipKeyGenerator(req.ip ?? ''));
 }
 
 const VENTANA_ENCUESTAS_MS = 60 * 60 * 1000;
