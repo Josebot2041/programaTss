@@ -93,9 +93,12 @@ export function normalizarTexto(valor: string): string {
     .trim();
 }
 
+/** Apóstrofo que el exportador antepone a un texto que parece fórmula (ver neutralizarFormula). */
+const FORMULA_NEUTRALIZADA = /^'[=+\-@\t\r]/;
+
 function aTexto(valor: unknown): string {
   if (valor === null || valor === undefined) return '';
-  if (typeof valor === 'string') return valor.trim();
+  if (typeof valor === 'string') return (FORMULA_NEUTRALIZADA.test(valor) ? valor.slice(1) : valor).trim();
   if (typeof valor === 'boolean') return valor ? 'true' : 'false';
   return String(valor).trim();
 }

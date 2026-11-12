@@ -1,6 +1,7 @@
 /**
  * Exportación de la base activa a CSV (Excel en español: BOM UTF-8 y ";") y a .xlsx.
  * Usa las mismas columnas y etiquetas que el importador, así un archivo exportado se reimporta igual.
+ * Los textos que una planilla interpretaría como fórmula se neutralizan (ver neutralizarFormula).
  */
 
 import { LIKERT_TITULADOS } from '../data/catalogos';
@@ -11,6 +12,20 @@ import { calcularResumen, generarHallazgos } from './hallazgos';
 import { COLUMNAS_EMPLEADORES, COLUMNAS_TITULADOS, obtenerXLSX, type Columna } from './importador';
 
 type Celda = string | number;
+
+/** Inicios que Excel, LibreOffice o Google Sheets interpretan como fórmula (inyección de fórmulas). */
+const INICIO_DE_FORMULA = /^[=+\-@\t\r]/;
+
+/**
+ * Antepone un apóstrofo a los textos que empiezan como una fórmula («=», «+», «-», «@»,
+ * tabulación o retorno de carro), para que la planilla los muestre como texto y no los ejecute.
+ * Los números no se tocan. El importador quita ese apóstrofo al volver a leer el archivo.
+ */
+export function neutralizarFormula(valor: Celda): Celda {
+  return typeof valor === 'string' && INICIO_DE_FORMULA.test(valor) ? `'${valor}` : valor;
+}
+
+const neutralizarFilas = (filas: Celda[][]) => filas.map((f) => f.map(neutralizarFormula));
 
 /** Valor de una celda tal como lo escribe la base real. */
 function celda(columna: Columna, valor: unknown): Celda {
@@ -80,7 +95,8 @@ export function filasResultados(titulados: Titulado[], empleadores: Empleador[])
 /** CSV para Excel en español: BOM UTF-8, separador ";" y comillas cuando hace falta. */
 export function aCSV(filas: Celda[][]): string {
   const escapar = (v: Celda) => {
-    const texto = typeof v === 'number' ? String(v) : v;
+    const segura = neutralizarFormula(v);
+    const texto = typeof segura === 'number' ? String(segura) : segura;
     return /[";\r\n]/.test(texto) ? `"${texto.replace(/"/g, '""')}"` : texto;
   };
   return String.fromCharCode(0xfeff) + filas.map((f) => f.map(escapar).join(';')).join('\r\n');
@@ -90,9 +106,9 @@ export function aCSV(filas: Celda[][]): string {
 export async function aXlsx(titulados: Titulado[], empleadores: Empleador[]): Promise<ArrayBuffer> {
   const xlsx = await obtenerXLSX();
   const libro = xlsx.utils.book_new();
-  xlsx.utils.book_append_sheet(libro, xlsx.utils.aoa_to_sheet(filasTitulados(titulados)), 'Titulados');
-  xlsx.utils.book_append_sheet(libro, xlsx.utils.aoa_to_sheet(filasEmpleadores(empleadores)), 'Empleadores');
-  xlsx.utils.book_append_sheet(libro, xlsx.utils.aoa_to_sheet(filasResultados(titulados, empleadores)), 'Resultados');
+  xlsx.utils.book_append_sheet(libro, xlsx.utils.aoa_to_sheet(neutralizarFilas(filasTitulados(titulados))), 'Titulados');
+  xlsx.utils.book_append_sheet(libro, xlsx.utils.aoa_to_sheet(neutralizarFilas(filasEmpleadores(empleadores))), 'Empleadores');
+  xlsx.utils.book_append_sheet(libro, xlsx.utils.aoa_to_sheet(neutralizarFilas(filasResultados(titulados, empleadores))), 'Resultados');
   return xlsx.write(libro, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer;
 }
 
