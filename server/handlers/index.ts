@@ -1,9 +1,9 @@
 /**
- * Tabla de rutas de la API. Express la recorre en server/app.ts; en Vercel, cada archivo
- * api/<ruta>.ts puede exportar `(req, res) => despachar(RUTAS['/api/<ruta>'], req.method, req)`.
+ * Tabla de rutas de la API. Express la recorre en server/app.ts, que aplica el acceso de cada
+ * ruta: 'publico', 'sesion' (requiereSesion) o 'admin' (requiereSesion + requiereAdmin).
  *
- * Cada ruta declara su acceso: 'publico', 'sesion' (requiereSesion) o 'admin'
- * (requiereSesion + requiereAdmin).
+ * despachar() no comprueba el acceso: fuera de crearApp() (por ejemplo, en una función de Vercel)
+ * hay que aplicar antes requiereSesion / requiereAdmin. Ver «Despliegue futuro en Vercel» en el README.
  */
 
 import { actualizarUsuario, eliminarUsuario, listarUsuarios, resumen } from './admin';

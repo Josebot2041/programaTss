@@ -271,20 +271,44 @@ SheetJS (`xlsx` 0.20.3) no se publica en el registro de npm: el paquete está gu
 
 ### Despliegue futuro en Vercel
 
-Los manejadores de `server/handlers/` reciben `{ body, params, query, usuario }` y devuelven
-`{ status, body }` (y, en login y logout, qué hacer con la sesión), sin depender de Express. Para
-pasarlos a funciones serverless basta con un archivo por ruta, por ejemplo `api/titulados.ts`.
-`despachar` no comprueba el acceso: cada ruta declara el suyo en `RUTAS` (`publico`, `sesion` o
-`admin`) y en serverless hay que aplicar antes el equivalente de `requiereSesion` / `requiereAdmin`
-(por ejemplo, con el mismo `express-session`):
+Los manejadores de `server/handlers/` reciben `{ body, params, query, usuario, archivo }` y devuelven
+`{ status, body }` (y, en login y logout, qué hacer con la sesión), sin depender de Express.
+
+> **Importante:** `despachar` **no comprueba el acceso**. Cada ruta declara el suyo en `RUTAS`
+> (`publico`, `sesion` o `admin`) y quien la publique debe aplicar antes `requiereSesion` /
+> `requiereAdmin`. Si una función serverless llama a `despachar` sin ese control, cualquiera podría
+> leer los datos o administrar usuarios.
+
+La forma más simple y segura es publicar la misma aplicación Express en una sola función, que ya
+aplica la sesión, el control de acceso de cada ruta, los límites de intentos y la subida de archivos
+(por ejemplo, `api/[...ruta].ts`):
 
 ```ts
-import { RUTAS, despachar } from '../server/handlers';
+import { crearApp } from '../server/app';
 
-export default async function handler(req, res) {
-  const { status, body } = await despachar(RUTAS['/api/titulados'], req.method, { body: req.body });
-  res.status(status).json(body);
-}
+export default crearApp();
 ```
+
+Si prefiere una función por ruta, aplique el control antes de despachar. Por ejemplo,
+`/api/titulados` tiene acceso `admin`:
+
+```ts
+import express from 'express';
+import { RUTAS, despachar } from '../server/handlers';
+import { crearMiddlewareSesion, requiereAdmin, requiereSesion } from '../server/sesion';
+
+const app = express();
+app.use(crearMiddlewareSesion());
+// Primero la sesión y el rol; solo después el manejador
+app.get('/api/titulados', requiereSesion, requiereAdmin, async (_req, res) => {
+  const { status, body } = await despachar(RUTAS['/api/titulados'], 'GET', { usuario: res.locals.usuario });
+  res.status(status).json(body);
+});
+
+export default app;
+```
+
+En ambos casos la función necesita `DATABASE_URL` y `SESSION_SECRET`. Si el sitio se publica sin
+backend, la portada lo detecta con `/api/health` y deshabilita las encuestas y el login.
 
 El relevamiento técnico de la versión original (documento histórico) está en [docs/RELEVAMIENTO.md](docs/RELEVAMIENTO.md).
