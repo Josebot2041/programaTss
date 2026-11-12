@@ -14,6 +14,10 @@ La interfaz (React) lee los datos de una API propia (Express) conectada a Postgr
 | `/#admin-login` | Acceso de administrador (CI y contraseña) |
 | `/#panel/<sección>` | Panel de análisis (solo administradores; sin sesión, lleva al login y después a esa sección) |
 
+Al abrir la portada, una encuesta o el login, la web consulta `GET /api/health` (hasta 3 s). Si
+no responde como la API (por ejemplo, en un despliegue solo estático sin backend), avisa «Las
+encuestas no están disponibles en este momento» y deshabilita los botones y formularios.
+
 No hay registro público: los encuestados no necesitan cuenta y los administradores se crean con
 `npm run crear-admin`. Una cuenta sin rol `admin` no puede entrar («No tiene permisos de
 administrador»).

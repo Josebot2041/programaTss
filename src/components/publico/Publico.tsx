@@ -2,10 +2,42 @@
  * Piezas comunes de las páginas públicas (portada, encuestas y acceso de administrador).
  */
 
-import React from 'react';
-import { ArrowLeft } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { AlertCircle, ArrowLeft } from 'lucide-react';
+import { apiDisponible } from '../../utils/api';
 
 export const PIE_INSTITUCIONAL = 'Universidad Mayor de San Simón — Facultad de Ciencias y Tecnología';
+
+export type EstadoApi = 'verificando' | 'disponible' | 'no_disponible';
+
+/**
+ * Consulta GET /api/health (hasta 3 s) al abrir una página pública. Sin la API (por ejemplo, un
+ * despliegue solo estático) las encuestas y el login no pueden funcionar, así que las páginas
+ * lo avisan y deshabilitan sus botones. Mientras se verifica, todo sigue habilitado.
+ */
+export function useEstadoApi(): EstadoApi {
+  const [estado, setEstado] = useState<EstadoApi>('verificando');
+  useEffect(() => {
+    let vigente = true;
+    void apiDisponible().then((ok) => {
+      if (vigente) setEstado(ok ? 'disponible' : 'no_disponible');
+    });
+    return () => {
+      vigente = false;
+    };
+  }, []);
+  return estado;
+}
+
+/** Aviso sobrio de que el servidor no está disponible. */
+export function AvisoNoDisponible({ children = 'Las encuestas no están disponibles en este momento.' }: { children?: React.ReactNode }) {
+  return (
+    <div role="alert" className="flex items-start gap-2 border-l-4 border-resalte bg-resalte-fondo px-4 py-3 text-sm text-slate-800">
+      <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-resalte" aria-hidden="true" />
+      <span>{children} Intente de nuevo más tarde.</span>
+    </div>
+  );
+}
 
 /** Enlace «← Volver al inicio»: es un enlace real (se puede abrir en otra pestaña), pero navega sin recargar. */
 export function VolverAlInicio({ onVolver }: { onVolver: () => void }) {

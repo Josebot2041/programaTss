@@ -75,6 +75,24 @@ async function pedir<T>(metodo: string, ruta: string, cuerpo?: unknown, espera =
   throw new ErrorApi(respuesta.status, datos?.error ?? `El servidor respondió HTTP ${respuesta.status}.`, datos?.errores);
 }
 
+/** Espera máxima para saber si la API está (la portada no debe quedar esperando más). */
+const ESPERA_SALUD_MS = 3000;
+
+/**
+ * true si la API responde y su base de datos también (GET /api/health con { ok: true }).
+ * En un despliegue solo estático (p. ej. Vercel sin backend), /api/health devuelve 404 o el
+ * index.html: entonces las encuestas y el login no pueden funcionar.
+ */
+export async function apiDisponible(espera = ESPERA_SALUD_MS): Promise<boolean> {
+  try {
+    const respuesta = await fetch('/api/health', { cache: 'no-store', credentials: 'same-origin', signal: AbortSignal.timeout(espera) });
+    const datos = (await respuesta.json()) as { ok?: unknown };
+    return datos.ok === true;
+  } catch {
+    return false;
+  }
+}
+
 /** Carga titulados, empleadores y afirmaciones desde la base de datos. */
 export async function cargarDesdeApi(): Promise<DatosApi> {
   const [titulados, empleadores, items] = await Promise.all([

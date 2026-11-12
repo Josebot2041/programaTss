@@ -4,7 +4,7 @@ import { ErrorApi, iniciarSesion } from '../../utils/api';
 import type { Errores } from '../../utils/validacion';
 import { validarLogin, type Usuario } from '../../utils/validacionUsuario';
 import { CampoContrasena, CampoTexto } from '../ui/Formulario';
-import { PaginaPublica, VolverAlInicio } from './Publico';
+import { AvisoNoDisponible, PaginaPublica, useEstadoApi, VolverAlInicio } from './Publico';
 
 /** Mensaje para el usuario ante un error de la API que no es de un campo. */
 function mensajeDe(err: unknown): string {
@@ -25,6 +25,8 @@ export function AccesoAdmin({ onAutenticado, onVolver, aviso }: { onAutenticado:
   const [mensaje, setMensaje] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [intentado, setIntentado] = useState(false);
+  // Sin la API no se puede iniciar sesión: el formulario se deshabilita
+  const sinApi = useEstadoApi() === 'no_disponible';
 
   const cambiar = (campo: 'ci' | 'password') => (valor: string) => {
     const nuevos = { ...datos, [campo]: valor };
@@ -67,7 +69,9 @@ export function AccesoAdmin({ onAutenticado, onVolver, aviso }: { onAutenticado:
           <p className="mt-1 text-sm text-slate-600">Ingrese con su CI y contraseña para abrir el panel de análisis.</p>
         </div>
 
-        {avisoVisible && (
+        {sinApi && <AvisoNoDisponible>El acceso al panel no está disponible en este momento.</AvisoNoDisponible>}
+
+        {avisoVisible && !sinApi && (
           <div role="alert" className="flex items-start gap-2 border-l-4 border-resalte bg-resalte-fondo px-3 py-2 text-sm text-slate-800">
             <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-resalte" aria-hidden="true" />
             <span>{mensaje || aviso}</span>
@@ -75,23 +79,25 @@ export function AccesoAdmin({ onAutenticado, onVolver, aviso }: { onAutenticado:
         )}
 
         <form onSubmit={(e) => void enviar(e)} noValidate className="space-y-4">
-          <CampoTexto id="ci" etiqueta="CI" valor={datos.ci} onCambiar={cambiar('ci')} error={errores.ci} obligatorio autoComplete="username" />
-          <CampoContrasena
-            id="password"
-            etiqueta="Contraseña"
-            valor={datos.password}
-            onCambiar={cambiar('password')}
-            error={errores.password}
-            autoComplete="current-password"
-          />
-          <button
-            type="submit"
-            disabled={enviando}
-            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-slate-800 hover:bg-slate-700 rounded disabled:opacity-60"
-          >
-            {enviando && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
-            {enviando ? 'Ingresando…' : 'Iniciar sesión'}
-          </button>
+          <fieldset disabled={sinApi} className="space-y-4 disabled:opacity-60">
+            <CampoTexto id="ci" etiqueta="CI" valor={datos.ci} onCambiar={cambiar('ci')} error={errores.ci} obligatorio autoComplete="username" />
+            <CampoContrasena
+              id="password"
+              etiqueta="Contraseña"
+              valor={datos.password}
+              onCambiar={cambiar('password')}
+              error={errores.password}
+              autoComplete="current-password"
+            />
+            <button
+              type="submit"
+              disabled={enviando}
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-slate-800 hover:bg-slate-700 rounded disabled:opacity-60"
+            >
+              {enviando && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
+              {enviando ? 'Ingresando…' : 'Iniciar sesión'}
+            </button>
+          </fieldset>
         </form>
       </section>
     </PaginaPublica>

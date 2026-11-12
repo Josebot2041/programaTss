@@ -2,7 +2,7 @@ import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { enviarEmpleadorPublico, enviarTituladoPublico } from '../../utils/api';
 import { CAMPO_TRAMPA, type BorradorEmpleador, type BorradorTitulado } from '../../utils/validacion';
-import { PaginaPublica, VolverAlInicio } from './Publico';
+import { AvisoNoDisponible, PaginaPublica, useEstadoApi, VolverAlInicio } from './Publico';
 
 const FormTituladosSurvey = lazy(() => import('../FormTituladosSurvey').then((m) => ({ default: m.FormTituladosSurvey })));
 const FormEmpleadoresSurvey = lazy(() => import('../FormEmpleadoresSurvey').then((m) => ({ default: m.FormEmpleadoresSurvey })));
@@ -14,6 +14,7 @@ const FormEmpleadoresSurvey = lazy(() => import('../FormEmpleadoresSurvey').then
 export function EncuestaPublica({ tipo, onVolver }: { tipo: 'titulados' | 'empleadores'; onVolver: () => void }) {
   const [enviada, setEnviada] = useState(false);
   const [trampa, setTrampa] = useState('');
+  const estadoApi = useEstadoApi();
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -58,13 +59,18 @@ export function EncuestaPublica({ tipo, onVolver }: { tipo: 'titulados' | 'emple
         <input id={CAMPO_TRAMPA} name={CAMPO_TRAMPA} type="text" tabIndex={-1} autoComplete="off" value={trampa} onChange={(e) => setTrampa(e.target.value)} />
       </div>
 
-      <Suspense fallback={<p className="text-sm text-slate-500">Cargando la encuesta…</p>}>
-        {tipo === 'titulados' ? (
-          <FormTituladosSurvey onGuardarTitulado={async (b: BorradorTitulado) => alGuardar(await enviarTituladoPublico(b, trampa))} />
-        ) : (
-          <FormEmpleadoresSurvey onGuardarEmpleador={async (b: BorradorEmpleador) => alGuardar(await enviarEmpleadorPublico(b, trampa))} />
-        )}
-      </Suspense>
+      {/* Sin la API la encuesta no se podría enviar: no se muestra el formulario */}
+      {estadoApi === 'no_disponible' ? (
+        <AvisoNoDisponible />
+      ) : (
+        <Suspense fallback={<p className="text-sm text-slate-500">Cargando la encuesta…</p>}>
+          {tipo === 'titulados' ? (
+            <FormTituladosSurvey onGuardarTitulado={async (b: BorradorTitulado) => alGuardar(await enviarTituladoPublico(b, trampa))} />
+          ) : (
+            <FormEmpleadoresSurvey onGuardarEmpleador={async (b: BorradorEmpleador) => alGuardar(await enviarEmpleadorPublico(b, trampa))} />
+          )}
+        </Suspense>
+      )}
     </PaginaPublica>
   );
 }

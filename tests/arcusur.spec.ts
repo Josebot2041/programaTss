@@ -8,6 +8,8 @@
  * lleva al login (nunca al Excel) y un 5xx al Excel de respaldo, indicado en el Header.
  * P10 · Importación: un Excel crudo de Microsoft Forms importado en modo «agregar» queda en
  * PostgreSQL (el contador lo refleja después de recargar la página).
+ * P11 · Sin backend (p. ej. un despliegue solo estático): la portada, las encuestas y el login
+ * avisan que no están disponibles y deshabilitan sus botones.
  *
  * Los usuarios de prueba tienen CI que empiezan con 94 y una contraseña generada al azar en cada
  * ejecución. Al terminar se borran (con sus sesiones), igual que las encuestas enviadas.
@@ -314,3 +316,51 @@ test.describe('P10 · Importación a la base de datos', () => {
     await expect(fuenteDatos(page)).toContainText(`Base de datos · ${antes + 2} titulados`);
   });
 });
+
+test.describe('P11 · Sin backend', () => {
+  const avisoEncuestas = (page: Page) => page.getByRole('alert').filter({ hasText: 'Las encuestas no están disponibles en este momento' });
+
+  test('P11.1 Con la API apagada, la portada lo avisa y deshabilita sus botones', async ({ page }) => {
+    await page.route('**/api/**', (ruta) => ruta.abort('connectionrefused'));
+    await page.goto('/');
+    await expect(avisoEncuestas(page)).toBeVisible();
+    const botones = page.getByRole('list', { name: 'Opciones de acceso' }).getByRole('link');
+    await expect(botones).toHaveText(['Llenar encuesta', 'Llenar encuesta', 'Entrar al panel']);
+    for (const boton of await botones.all()) {
+      await expect(boton).toHaveAttribute('aria-disabled', 'true');
+      await expect(boton).not.toHaveAttribute('href');
+    }
+    await botones.first().click({ force: true });
+    await expect(page).not.toHaveURL(/#encuesta-titulados/);
+  });
+
+  test('P11.2 Abrir directamente una encuesta o el login sin la API muestra el aviso, sin formulario', async ({ page }) => {
+    await page.route('**/api/**', (ruta) => ruta.abort('connectionrefused'));
+    for (const ruta of ['/#encuesta-titulados', '/#encuesta-empleadores']) {
+      await page.goto(ruta);
+      await expect(avisoEncuestas(page)).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Enviar encuesta' })).toHaveCount(0);
+      await expect(page.getByRole('link', { name: 'Volver al inicio' })).toBeVisible();
+    }
+    await page.goto('/#admin-login');
+    await expect(page.getByRole('alert').filter({ hasText: 'El acceso al panel no está disponible en este momento' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Iniciar sesión', exact: true })).toBeDisabled();
+    await expect(page.locator('#ci')).toBeDisabled();
+  });
+
+  test('P11.3 Un despliegue estático (que responde index.html en /api/health) también se detecta', async ({ page }) => {
+    await page.route('**/api/**', (ruta) => ruta.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><html><body>SPA</body></html>' }));
+    await page.goto('/');
+    await expect(avisoEncuestas(page)).toBeVisible();
+  });
+
+  test('P11.4 Con la API en marcha no hay aviso y los botones funcionan', async ({ page }) => {
+    // Se espera a que termine la consulta a /api/health antes de comprobar que no hay aviso
+    const salud = page.waitForResponse((r) => r.url().endsWith('/api/health'));
+    await page.goto('/');
+    expect((await salud).status()).toBe(200);
+    await expect(avisoEncuestas(page)).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Entrar al panel' })).toHaveAttribute('href', '#admin-login');
+  });
+});
+
