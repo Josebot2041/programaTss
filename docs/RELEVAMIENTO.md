@@ -1,5 +1,10 @@
 # Relevamiento técnico – Simulador ARCU-SUR (versión del compañero)
 
+> **Documento histórico.** Es el relevamiento de la versión original del proyecto (octubre de 2026)
+> y no describe el estado actual: la mayoría de los problemas que lista ya se corrigieron, y varios
+> archivos que menciona (por ejemplo `metadata.json` y `public/assets/aistudio/`) ya no existen, así
+> que algunos enlaces no funcionan. Para el estado actual, vea el [README](../README.md).
+
 > Fase 1, solo relevamiento. Este archivo es el único cambio en el repositorio; no se modificó ningún otro.
 > Fecha: 2026-10-20 · Commit revisado: `2000127` ("Version original del companero (pendrive)")
 

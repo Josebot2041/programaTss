@@ -283,4 +283,4 @@ export default async function handler(req, res) {
 }
 ```
 
-El relevamiento técnico inicial y el plan de correcciones están en [RELEVAMIENTO.md](RELEVAMIENTO.md).
+El relevamiento técnico de la versión original (documento histórico) está en [docs/RELEVAMIENTO.md](docs/RELEVAMIENTO.md).
