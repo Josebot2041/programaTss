@@ -76,7 +76,6 @@ const PantallaInicioPublica = ({ onNavigate }: { onNavigate: (tab: string) => vo
         Proceso de Acreditación ARCUSUR - Ingeniería de Sistemas
       </p>
 
-      {/* Contenedor principal con logos laterales y tarjetas en el centro */}
       <div className="flex items-center justify-center w-full max-w-6xl gap-8">
         
         {/* Logo UMSS Izquierda */}
@@ -283,7 +282,7 @@ export default function App() {
     );
   }
 
-  // --- INICIO PÚBLICO (Sin Login) ---
+
   if (usuario === null && activeTab === 'inicio_publico') {
     return <PantallaInicioPublica onNavigate={irA} />;
   }

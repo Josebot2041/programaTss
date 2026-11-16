@@ -27,7 +27,7 @@ interface TabSimulationEngineProps {
   vistaInicial?: Vista;
 }
 
-/** Semilla inicial de la vista del generador (la de cada escenario está en SUPUESTOS_INFORME). */
+
 const SEMILLA_GENERADOR = 45217;
 
 const TIEMPO_CORTO: Record<string, string> = {

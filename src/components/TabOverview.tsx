@@ -12,7 +12,7 @@ interface TabOverviewProps {
   onNavigate: (tab: string) => void;
 }
 
-/** Hallazgos que se muestran en la portada y la pestaña donde se analizan. */
+
 const HALLAZGOS_PORTADA: Array<{ numero: number; pestana: string }> = [
   { numero: 1, pestana: 'mercado' },
   { numero: 4, pestana: 'estadistica' },
