@@ -5,6 +5,7 @@
  */
 
 import express from 'express';
+import path from 'path';
 import { RUTAS, type Acceso, type Manejador } from './handlers';
 import type { Metodo } from './handlers/tipos';
 import { cerrarSesion, crearLimiteLogin, crearMiddlewareSesion, enProduccion, iniciarSesion, requiereAdmin, requiereSesion } from './sesion';
@@ -66,6 +67,14 @@ export function crearApp() {
   app.use('/api', (_req, res) => {
     res.status(404).json({ error: 'Ruta no encontrada' });
   });
+
+  if (enProduccion()) {
+    const distPath = path.join(process.cwd(), 'dist');
+    app.use(express.static(distPath));
+    app.get('*', (_req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  }
 
   // Errores no controlados (base caída, JSON mal formado…): sin detalles internos al cliente.
   app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
