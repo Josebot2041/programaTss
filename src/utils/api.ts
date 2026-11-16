@@ -65,8 +65,14 @@ async function pedir<T>(metodo: string, ruta: string, cuerpo?: unknown): Promise
     if (datos === undefined) throw new ErrorApi(0, 'El servidor no respondió como la API.');
     return datos as T;
   }
-  // 401 en una ruta protegida: la sesión ya no es válida (el login responde 401 por otra razón)
-  if (respuesta.status === 401 && ruta !== 'auth/login' && ruta !== 'auth/yo') alPerderSesion?.();
+  // 401 en una ruta protegida: la sesión venció o fue cerrada desde otro lado.
+  // No se dispara en rutas de autenticación ni en las de carga inicial de datos
+  // (titulados/empleadores/items), porque esas rutas también devuelven 401 cuando
+  // el usuario simplemente no tiene sesión (pantalla pública), y no queremos mostrar
+  // "Su sesión terminó" a alguien que nunca inició sesión.
+  const RUTAS_CARGA_INICIAL = new Set(['titulados', 'empleadores', 'items-empleadores']);
+  const esRutaAuth = ruta === 'auth/login' || ruta === 'auth/yo';
+  if (respuesta.status === 401 && !esRutaAuth && !RUTAS_CARGA_INICIAL.has(ruta)) alPerderSesion?.();
   throw new ErrorApi(respuesta.status, datos?.error ?? `El servidor respondió HTTP ${respuesta.status}.`, datos?.errores);
 }
 

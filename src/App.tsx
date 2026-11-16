@@ -245,12 +245,12 @@ export default function App() {
     return false;
   }, []);
 
+  // Carga datos solo cuando hay un usuario con sesión activa.
+  // Si no hay sesión (usuario === null), las pantallas públicas no necesitan datos de la API
+  // y no debemos llamar a cargarDesdeApi() porque dispararía alPerderSesion() con 401.
   const usuarioId = usuario?.id;
   useEffect(() => {
-    if (usuarioId !== undefined) {
-      void cargarBase();
-      return;
-    }
+    if (!usuarioId) return; // sin sesión: no cargar desde la API
     void cargarBase();
   }, [usuarioId, cargarBase]);
 
