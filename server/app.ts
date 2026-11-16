@@ -71,11 +71,10 @@ export function crearApp() {
   if (enProduccion()) {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (_req, res) => {
+    app.use((_req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
-
   // Errores no controlados (base caída, JSON mal formado…): sin detalles internos al cliente.
   app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     const estado = (err as { status?: number }).status;
