@@ -92,8 +92,8 @@ async function enviar<T>(ruta: string, borrador: unknown): Promise<ResultadoGuar
   }
 }
 
-export const guardarTitulado = (b: BorradorTitulado) => enviar<Titulado>('titulados', b);
-export const guardarEmpleador = (b: BorradorEmpleador) => enviar<Empleador>('empleadores', b);
+export const guardarTitulado = (b: BorradorTitulado) => enviar<Titulado>('titulados/enviar', b);
+export const guardarEmpleador = (b: BorradorEmpleador) => enviar<Empleador>('empleadores/enviar', b);
 
 // ---------------------------------------------------------------------------
 // Sesión

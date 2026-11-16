@@ -1,9 +1,10 @@
 import React from 'react';
-import { CloudOff, Database, FileSpreadsheet, LogOut, Menu, Printer } from 'lucide-react';
+import { CloudOff, Database, FileSpreadsheet, LogOut, Menu } from 'lucide-react';
 import type { Usuario } from '../utils/validacionUsuario';
 import { NAVEGACION, NAVEGACION_ADMIN } from './Sidebar';
 
-
+/** Fuente de datos activa que muestra el Header. */
+export type FuenteDatos = 'api' | 'excel' | 'archivo';
 
 interface HeaderProps {
   activeTab: string;

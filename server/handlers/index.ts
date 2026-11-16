@@ -19,8 +19,11 @@ export const RUTAS: Record<string, ManejadoresRuta> = {
   '/api/auth/login': { acceso: 'publico', POST: login },
   '/api/auth/logout': { acceso: 'publico', POST: logout },
   '/api/auth/yo': { acceso: 'sesion', GET: yo },
-  '/api/titulados': { acceso: 'sesion', GET: listarTitulados, POST: crearTitulado },
-  '/api/empleadores': { acceso: 'sesion', GET: listarEmpleadores, POST: crearEmpleador },
+  // GET requiere sesión; POST es público (cualquiera puede enviar una encuesta sin login)
+  '/api/titulados': { acceso: 'sesion', GET: listarTitulados },
+  '/api/titulados/enviar': { acceso: 'publico', POST: crearTitulado },
+  '/api/empleadores': { acceso: 'sesion', GET: listarEmpleadores },
+  '/api/empleadores/enviar': { acceso: 'publico', POST: crearEmpleador },
   '/api/items-empleadores': { acceso: 'sesion', GET: listarItemsEmpleadores },
   '/api/admin/usuarios': { acceso: 'admin', GET: listarUsuarios },
   '/api/admin/usuarios/:id': { acceso: 'admin', PATCH: actualizarUsuario, DELETE: eliminarUsuario },
